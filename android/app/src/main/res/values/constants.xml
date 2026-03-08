@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Recorder's amplitude report period in milliseconds -->
-    <integer name="recorder_amplitude_report_period">150</integer>
+    <integer name="recorder_amplitude_report_period">16</integer>
 
     <!-- The threshold amplitude over which the Recorder FSM turns into Speaking from Idle -->
     <integer name="recorder_fsm_idle_speaking_threshold">800</integer>

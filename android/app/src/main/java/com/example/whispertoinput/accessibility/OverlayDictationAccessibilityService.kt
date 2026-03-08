@@ -4,21 +4,18 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.view.KeyEvent
-import android.view.ViewConfiguration
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Toast
 import com.example.whispertoinput.MainActivity
 import com.example.whispertoinput.R
+import com.example.whispertoinput.dataStore
 import com.example.whispertoinput.WhisperTranscriber
 import com.example.whispertoinput.recorder.RecorderManager
-import com.example.whispertoinput.voice.VoiceInputConfig
-import com.example.whispertoinput.voice.VoiceInputSessionController
 import com.example.whispertoinput.voice.VoiceInputSessionState
+import com.example.whispertoinput.voice.VoiceInputSessionController
 import com.example.whispertoinput.voice.VoiceSessionRecorder
 import com.example.whispertoinput.voice.VoiceSessionTranscriber
 import com.example.whispertoinput.voice.loadVoiceInputConfig
@@ -27,25 +24,20 @@ import com.github.liuyueyi.quick.transfer.constants.TransType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-private const val HUAWEI_VOICE_INPUT_KEY_CODE = 204
 private const val ACCESSIBILITY_TAG = "whisper-input-overlay"
 
-class HuaweiDictationAccessibilityService : AccessibilityService() {
-    private val handler = Handler(Looper.getMainLooper())
+class OverlayDictationAccessibilityService : AccessibilityService() {
     private val serviceScope = CoroutineScope(Dispatchers.Main)
     private lateinit var recorderManager: RecorderManager
     private lateinit var sessionController: VoiceInputSessionController
-    private val keyTracker = HoldToDictateKeyTracker(HUAWEI_VOICE_INPUT_KEY_CODE)
     private lateinit var overlayController: DictationOverlayController
     private lateinit var focusedInputEditor: FocusedInputEditor
+    private var keyboardShortcut: KeyboardShortcut = defaultKeyboardShortcut()
     private var shouldRestoreKeyboard: Boolean = false
-    private val startRecordingRunnable = Runnable {
-        if (keyTracker.onLongPress()) {
-            beginDictationTakeover()
-        }
-    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -62,14 +54,15 @@ class HuaweiDictationAccessibilityService : AccessibilityService() {
         focusedInputEditor = FocusedInputEditor(this)
         preloadChineseConversionTables()
         configureServiceInfo()
+        serviceScope.launch {
+            dataStore.data.map { preferences -> preferences.toKeyboardShortcut() }.collect { shortcut ->
+                keyboardShortcut = shortcut
+            }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
-            event?.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED
-        ) {
-            Unit
-        }
+        Unit
     }
 
     override fun onInterrupt() {
@@ -77,37 +70,20 @@ class HuaweiDictationAccessibilityService : AccessibilityService() {
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode != HUAWEI_VOICE_INPUT_KEY_CODE) {
+        if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount > 0 || isModifierKey(event.keyCode)) {
             return false
         }
 
-        when (event.action) {
-            KeyEvent.ACTION_DOWN -> {
-                if (!keyTracker.onKeyDown(event.keyCode)) {
-                    return keyTracker.isPressed()
-                }
-                Log.d(ACCESSIBILITY_TAG, "Voice key down detected")
-                handler.postDelayed(startRecordingRunnable, ViewConfiguration.getLongPressTimeout().toLong())
-                return true
-            }
-
-            KeyEvent.ACTION_UP -> {
-                handler.removeCallbacks(startRecordingRunnable)
-                val shouldStop = keyTracker.onKeyUp(event.keyCode)
-                if (shouldStop) {
-                    Log.d(ACCESSIBILITY_TAG, "Voice key released, stopping recording")
-                    sessionController.stopRecordingAndTranscribe()
-                    return true
-                }
-                return true
-            }
+        if (!matchesKeyboardShortcut(event, keyboardShortcut)) {
+            return false
         }
 
-        return false
+        Log.d(ACCESSIBILITY_TAG, "Shortcut pressed: ${formatKeyboardShortcut(keyboardShortcut)}")
+        toggleDictation(skipKeyboardHide = false, requireEditableFocus = true)
+        return true
     }
 
     override fun onDestroy() {
-        handler.removeCallbacksAndMessages(null)
         if (::overlayController.isInitialized && ::sessionController.isInitialized) {
             cancelCurrentSession()
         }
@@ -128,13 +104,29 @@ class HuaweiDictationAccessibilityService : AccessibilityService() {
         serviceInfo = info
     }
 
-    private fun beginDictationTakeover() {
+    private fun toggleDictation(skipKeyboardHide: Boolean = false, requireEditableFocus: Boolean = true) {
+        when (sessionController.state()) {
+            VoiceInputSessionState.Idle -> startDictation(skipKeyboardHide, requireEditableFocus)
+            VoiceInputSessionState.Recording -> {
+                Log.d(ACCESSIBILITY_TAG, "Shortcut pressed while recording; stopping and transcribing")
+                sessionController.stopRecordingAndTranscribe()
+            }
+            VoiceInputSessionState.Transcribing -> {
+                Log.d(ACCESSIBILITY_TAG, "Shortcut ignored while already transcribing")
+            }
+        }
+    }
+
+    private fun startDictation(
+        skipKeyboardHide: Boolean = false,
+        requireEditableFocus: Boolean = true,
+    ) {
         if (!::overlayController.isInitialized || !::sessionController.isInitialized) {
             return
         }
         val focusedNode = focusedInputEditor.findFocusedEditableNode()
-        if (!isEditableTarget(focusedNode)) {
-            Log.d(ACCESSIBILITY_TAG, "Voice key long press ignored because no editable field is focused")
+        if (requireEditableFocus && !isEditableTarget(focusedNode)) {
+            Log.d(ACCESSIBILITY_TAG, "Shortcut ignored because no editable field is focused")
             showToast(R.string.overlay_focus_required)
             restoreKeyboardIfNeeded()
             return
@@ -142,10 +134,12 @@ class HuaweiDictationAccessibilityService : AccessibilityService() {
 
         serviceScope.launch {
             val config = loadVoiceInputConfig()
-            shouldRestoreKeyboard = softKeyboardController.showMode != SHOW_MODE_HIDDEN
-            softKeyboardController.setShowMode(SHOW_MODE_HIDDEN)
-            Log.d(ACCESSIBILITY_TAG, "Starting dictation overlay for language ${config.languageLabel}")
-            overlayController.show(config.languageLabel)
+            shouldRestoreKeyboard = !skipKeyboardHide && softKeyboardController.showMode != SHOW_MODE_HIDDEN
+            if (!skipKeyboardHide) {
+                softKeyboardController.setShowMode(SHOW_MODE_HIDDEN)
+            }
+            Log.d(ACCESSIBILITY_TAG, "Starting dictation overlay")
+            overlayController.show()
             overlayController.resetWaveform()
             val started = sessionController.startRecording(config)
             if (!started) {
@@ -167,8 +161,6 @@ class HuaweiDictationAccessibilityService : AccessibilityService() {
     }
 
     private fun cancelCurrentSession() {
-        handler.removeCallbacks(startRecordingRunnable)
-        keyTracker.cancel()
         sessionController.cancel()
         overlayController.hide()
         restoreKeyboardIfNeeded()
@@ -240,7 +232,7 @@ class HuaweiDictationAccessibilityService : AccessibilityService() {
             Log.e(ACCESSIBILITY_TAG, "Transcription failed: $message")
             overlayController.hide()
             restoreKeyboardIfNeeded()
-            Toast.makeText(this@HuaweiDictationAccessibilityService, message, Toast.LENGTH_LONG).show()
+            Toast.makeText(this@OverlayDictationAccessibilityService, message, Toast.LENGTH_LONG).show()
         }
     }
 

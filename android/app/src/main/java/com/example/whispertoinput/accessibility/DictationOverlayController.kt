@@ -13,7 +13,7 @@ import androidx.core.view.isVisible
 import com.example.whispertoinput.R
 import kotlin.math.roundToInt
 
-private const val DEFAULT_WIDTH_DP = 332
+private const val DEFAULT_WIDTH_DP = 440
 private const val DEFAULT_MARGIN_DP = 24
 
 class DictationOverlayController(
@@ -48,30 +48,29 @@ class DictationOverlayController(
         rootView.elevation = dp(context, 12f)
     }
 
-    fun show(languageLabel: String) {
+    fun show() {
         if (!isAttached) {
             updateDefaultPosition(rootView.context)
             windowManager.addView(rootView, layoutParams)
             isAttached = true
         }
-        updateLanguage(languageLabel)
         setRecordingState()
-    }
-
-    fun updateLanguage(languageLabel: String) {
-        labelSubtitle.text = languageLabel
     }
 
     fun setRecordingState() {
         labelStatus.setText(R.string.overlay_recording)
+        labelSubtitle.setText(R.string.overlay_recording_hint)
         transcribingIndicator.isVisible = false
         waveformView.isVisible = true
+        waveformView.showRecordingState()
     }
 
     fun setTranscribingState() {
         labelStatus.setText(R.string.overlay_transcribing)
+        labelSubtitle.setText(R.string.overlay_transcribing_hint)
         transcribingIndicator.isVisible = true
         waveformView.isVisible = true
+        waveformView.showTranscribingState()
     }
 
     fun setAmplitude(amplitude: Int) {
@@ -104,7 +103,7 @@ class DictationOverlayController(
         val widthPx = dp(context, DEFAULT_WIDTH_DP.toFloat()).roundToInt()
         val marginPx = dp(context, DEFAULT_MARGIN_DP.toFloat()).roundToInt()
         layoutParams.x = (displayMetrics.widthPixels - widthPx - marginPx).coerceAtLeast(0)
-        layoutParams.y = (displayMetrics.heightPixels - dp(context, 220f) - marginPx).roundToInt().coerceAtLeast(0)
+        layoutParams.y = (displayMetrics.heightPixels - dp(context, 174f) - marginPx).roundToInt().coerceAtLeast(0)
         xPositionPx = layoutParams.x
         yPositionPx = layoutParams.y
     }

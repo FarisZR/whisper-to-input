@@ -25,14 +25,15 @@
     <string name="overlay_recording">Listening…</string>
     <string name="overlay_transcribing">Transcribing…</string>
     <string name="overlay_close">Close dictation</string>
-    <string name="overlay_language_icon">Language indicator</string>
+    <string name="overlay_recording_hint">Press the shortcut again to stop</string>
+    <string name="overlay_transcribing_hint">Waiting to paste the transcript</string>
     <string name="overlay_focus_required">Focus a text field before dictating.</string>
     <string name="overlay_insert_failed">Unable to insert the transcript into this field.</string>
-    <string name="accessibility_service_label">Huawei dictation takeover</string>
-    <string name="accessibility_service_summary">Replace the Huawei hold-to-dictate shortcut with Whisper.</string>
-    <string name="accessibility_service_description">Listens for the Huawei hardware dictation key, shows a floating dictation overlay, records while the key is held, and inserts the Whisper transcript into the focused text field.</string>
-    <string name="settings_accessibility_setup">Huawei Dictation Takeover</string>
-    <string name="settings_accessibility_setup_desc">Enable the accessibility service so a long press on the Huawei dictation key can hide the current keyboard, show the floating overlay, and restore your keyboard when transcription finishes.</string>
+    <string name="accessibility_service_label">Overlay shortcut dictation</string>
+    <string name="accessibility_service_summary">Open a Whisper dictation overlay from a keyboard shortcut.</string>
+    <string name="accessibility_service_description">Listens for the configured keyboard shortcut, shows a floating dictation overlay, records until you stop it, and inserts the Whisper transcript into the focused text field.</string>
+    <string name="settings_accessibility_setup">Overlay Dictation Shortcut</string>
+    <string name="settings_accessibility_setup_desc">Enable the accessibility service so the keyboard shortcut can hide the current keyboard, show the floating overlay, and restore your keyboard when transcription finishes.</string>
     <string name="settings_open_accessibility">Open Accessibility Settings</string>
 
     <!-- Warning and Error Messages -->
@@ -44,6 +45,12 @@
     <string name="settings_btn_apply">Apply</string>
     <string name="settings_speech_to_text_backend">Speech to Text Backend</string>
     <string name="settings_speech_to_text_backend_desc">Use the official OpenAI API, Whisper ASR Webservice, or NVIDIA NIM backend.</string>
+    <string name="settings_overlay_shortcut">Overlay Shortcut</string>
+    <string name="settings_overlay_shortcut_desc">Choose any keyboard shortcut with at least one modifier. The shortcut opens the floating dictation overlay and stops recording on the next press.</string>
+    <string name="settings_overlay_shortcut_capture_button">Capture Shortcut</string>
+    <string name="settings_overlay_shortcut_capture_listening">Press shortcut…</string>
+    <string name="settings_overlay_shortcut_capture_toast">Press the shortcut you want to use. Press Escape to cancel.</string>
+    <string name="settings_overlay_shortcut_requires_modifier">Use at least one modifier key like Ctrl, Alt, Shift, or Meta.</string>
     <string name="settings_option_openai_api">OpenAI API</string>
     <string name="settings_option_openai_api_default_endpoint">https://api.openai.com/v1/audio/transcriptions</string>
     <string name="settings_option_openai_api_default_model">whisper-1</string>

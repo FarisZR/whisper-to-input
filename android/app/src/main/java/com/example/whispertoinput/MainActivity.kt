@@ -28,11 +28,13 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.*
+import android.view.KeyEvent
 import android.view.View
 import android.widget.AdapterView
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Spinner
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doOnTextChanged
@@ -40,6 +42,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.CoroutineScope
@@ -49,6 +52,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import com.example.whispertoinput.accessibility.KeyboardShortcut
+import com.example.whispertoinput.accessibility.captureKeyboardShortcut
+import com.example.whispertoinput.accessibility.formatKeyboardShortcut
+import com.example.whispertoinput.accessibility.toKeyboardShortcut
 
 // 200 and 201 are an arbitrary values, as long as they do not conflict with each other
 private const val MICROPHONE_PERMISSION_REQUEST_CODE = 200
@@ -63,9 +70,12 @@ val AUTO_RECORDING_START = booleanPreferencesKey("is-auto-recording-start")
 val AUTO_SWITCH_BACK = booleanPreferencesKey("auto-switch-back")
 val ADD_TRAILING_SPACE = booleanPreferencesKey("add-trailing-space")
 val POSTPROCESSING = stringPreferencesKey("postprocessing")
+val SHORTCUT_KEY_CODE = intPreferencesKey("shortcut-key-code")
+val SHORTCUT_MODIFIERS = intPreferencesKey("shortcut-modifiers")
 
 class MainActivity : AppCompatActivity() {
     private var setupSettingItemsDone: Boolean = false
+    private var shortcutCaptureSetting: SettingShortcutCapture? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -317,6 +327,80 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    inner class SettingShortcutCapture(
+        private val valueViewId: Int,
+        private val buttonViewId: Int,
+    ) : SettingItem() {
+        private var shortcut: KeyboardShortcut = KeyboardShortcut(0, 0)
+        private var capturing: Boolean = false
+
+        override fun setup(): Job {
+            return CoroutineScope(Dispatchers.Main).launch {
+                val btnApply: Button = findViewById(R.id.btn_settings_apply)
+                shortcut = dataStore.data.map { preferences -> preferences.toKeyboardShortcut() }.first()
+                updateViews()
+
+                findViewById<Button>(buttonViewId).setOnClickListener {
+                    capturing = !capturing
+                    if (capturing) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            R.string.settings_overlay_shortcut_capture_toast,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                    updateViews()
+                    btnApply.isEnabled = isDirty
+                }
+            }
+        }
+
+        override suspend fun apply() {
+            if (!isDirty) return
+            writeSetting(SHORTCUT_KEY_CODE, shortcut.keyCode)
+            writeSetting(SHORTCUT_MODIFIERS, shortcut.modifiers)
+            isDirty = false
+            updateViews()
+        }
+
+        fun handleKeyEvent(event: KeyEvent): Boolean {
+            if (!capturing || event.action != KeyEvent.ACTION_DOWN || event.repeatCount > 0) {
+                return false
+            }
+            if (event.keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                capturing = false
+                updateViews()
+                return true
+            }
+
+            val capturedShortcut = captureKeyboardShortcut(event.keyCode, event.metaState)
+            if (capturedShortcut == null) {
+                Toast.makeText(
+                    this@MainActivity,
+                    R.string.settings_overlay_shortcut_requires_modifier,
+                    Toast.LENGTH_SHORT,
+                ).show()
+                return true
+            }
+
+            shortcut = capturedShortcut
+            capturing = false
+            isDirty = true
+            findViewById<Button>(R.id.btn_settings_apply).isEnabled = true
+            updateViews()
+            return true
+        }
+
+        private fun updateViews() {
+            findViewById<TextView>(valueViewId).text = formatKeyboardShortcut(shortcut)
+            findViewById<Button>(buttonViewId).text = if (capturing) {
+                getString(R.string.settings_overlay_shortcut_capture_listening)
+            } else {
+                getString(R.string.settings_overlay_shortcut_capture_button)
+            }
+        }
+    }
+
     private fun setupSettingItems() {
         setupSettingItemsDone = false
         // Add setting items here to apply functions to them
@@ -349,6 +433,10 @@ class MainActivity : AppCompatActivity() {
                     getString(R.string.settings_option_no_conversion)
                 ), getString(R.string.settings_option_to_traditional)),
             )
+            shortcutCaptureSetting = SettingShortcutCapture(
+                R.id.value_overlay_shortcut,
+                R.id.btn_capture_overlay_shortcut,
+            )
             val btnApply: Button = findViewById(R.id.btn_settings_apply)
             btnApply.isEnabled = false
             btnApply.setOnClickListener {
@@ -357,12 +445,21 @@ class MainActivity : AppCompatActivity() {
                     for (settingItem in settingItems) {
                         settingItem.apply()
                     }
+                    shortcutCaptureSetting?.apply()
                     btnApply.isEnabled = false
                 }
                 Toast.makeText(this@MainActivity, R.string.successfully_set, Toast.LENGTH_SHORT).show()
             }
             settingItems.map { settingItem -> settingItem.setup() }.joinAll()
+            shortcutCaptureSetting?.setup()?.join()
             setupSettingItemsDone = true
         }
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (shortcutCaptureSetting?.handleKeyEvent(event) == true) {
+            return true
+        }
+        return super.dispatchKeyEvent(event)
     }
 }

@@ -48,7 +48,7 @@
 
         </service>
         <service
-            android:name=".accessibility.HuaweiDictationAccessibilityService"
+            android:name=".accessibility.OverlayDictationAccessibilityService"
             android:description="@string/accessibility_service_description"
             android:exported="false"
             android:label="@string/accessibility_service_label"

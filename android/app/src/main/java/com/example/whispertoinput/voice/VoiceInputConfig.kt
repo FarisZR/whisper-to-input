@@ -21,14 +21,7 @@ data class VoiceInputConfig(
     val useOggFormat: Boolean,
     val recordedAudioFilename: String,
     val audioMediaType: String,
-) {
-    val languageLabel: String
-        get() = when {
-            languageCode.isBlank() || languageCode == "auto" -> "Auto detect"
-            languageCode == "multi" -> "Multilingual"
-            else -> languageCode
-        }
-}
+)
 
 suspend fun Context.loadVoiceInputConfig(): VoiceInputConfig {
     val preferences = dataStore.data.map { settings: Preferences -> settings }.first()
