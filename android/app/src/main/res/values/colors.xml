@@ -3,4 +3,9 @@
     <color name="dark_gray">#FF777777</color>
     <color name="theme_light_grey">#d9d9d9</color>
     <color name="theme_rich_black">#FF001A23</color>
+    <color name="overlay_background">#FF3A3A3E</color>
+    <color name="overlay_foreground">#FFF4F4F6</color>
+    <color name="overlay_foreground_secondary">#FFDADAE0</color>
+    <color name="overlay_handle">#FF67676D</color>
+    <color name="overlay_waveform">#FF3D7BFF</color>
 </resources>

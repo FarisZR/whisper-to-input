@@ -18,4 +18,6 @@
     <!-- The time (ms) over which if the user stays silent (<= recorder_fsm_speaking_finish_threshold)
          in Recorder FSM Speaking, recording is automatically finished. -->
     <integer name="recorder_fsm_speaking_finish_time">3000</integer>
+
+    <integer name="dictation_min_recording_duration_ms">350</integer>
 </resources>

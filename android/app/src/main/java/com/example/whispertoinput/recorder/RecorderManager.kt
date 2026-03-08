@@ -111,15 +111,23 @@ class RecorderManager(context: Context) {
         }
     }
 
-    fun stop() {
+    fun stop(): Boolean {
+        var stoppedCleanly = true
         recorder?.apply {
-            stop()
-            release()
+            try {
+                stop()
+            } catch (exception: RuntimeException) {
+                Log.w("whisper-input", "MediaRecorder stop failed", exception)
+                stoppedCleanly = false
+            } finally {
+                release()
+            }
         }
         recorder = null
 
         microphoneAmplitudeUpdateJob?.cancel()
         microphoneAmplitudeUpdateJob = null
+        return stoppedCleanly
     }
 
     // Assign onUpdateMicrophoneAmplitude callback

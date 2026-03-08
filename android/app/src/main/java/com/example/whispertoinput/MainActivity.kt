@@ -89,6 +89,10 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
+    fun onOpenAccessibilitySettings(view: View) {
+        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+    }
+
     // Checks whether permissions are granted. If not, automatically make a request.
     private fun checkPermissions() {
         val permission_and_code = arrayOf(
