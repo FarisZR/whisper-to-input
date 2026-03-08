@@ -391,6 +391,14 @@ class MainActivity : AppCompatActivity() {
             return true
         }
 
+        fun cancelCapture() {
+            if (!capturing) {
+                return
+            }
+            capturing = false
+            updateViews()
+        }
+
         private fun updateViews() {
             findViewById<TextView>(valueViewId).text = formatKeyboardShortcut(shortcut)
             findViewById<Button>(buttonViewId).text = if (capturing) {
@@ -461,5 +469,10 @@ class MainActivity : AppCompatActivity() {
             return true
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    override fun onPause() {
+        shortcutCaptureSetting?.cancelCapture()
+        super.onPause()
     }
 }
