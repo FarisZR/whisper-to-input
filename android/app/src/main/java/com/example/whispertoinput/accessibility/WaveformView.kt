@@ -16,146 +16,230 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sin
 
-private const val BAR_COUNT = 39
-private const val MIN_BAR_SCALE = 0.08f
+/** Half the bar count on each side of center. Total bars = 2 * HALF_BARS + 1. */
+private const val HALF_BARS = 22
+
+/** Minimum amplitude to bother rendering a bar (below this it's invisible). */
+private const val VISIBILITY_THRESHOLD = 0.012f
+
 private const val MAX_AMPLITUDE = 32000f
 private const val FRAME_TIME_MS = 16L
 
-private enum class WaveformMode {
-    Idle,
-    Recording,
-    Transcribing,
-}
+/** How often a new amplitude sample is pushed into the ring buffer. */
+private const val SAMPLE_INTERVAL_MS = 38L
+
+private enum class WaveformMode { Idle, Recording, Transcribing }
 
 class WaveformView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+
+    private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.overlay_waveform)
         strokeCap = Paint.Cap.ROUND
-        strokeWidth = dp(4.5f)
+        strokeWidth = dp(3.5f)
     }
-    private val spacingPx = dp(7f)
-    private var mode: WaveformMode = WaveformMode.Idle
-    private var phase: Float = 0f
-    private var targetLevel: Float = MIN_BAR_SCALE
-    private var displayedLevel: Float = MIN_BAR_SCALE
-    private var lastAmplitudeAtMs: Long = 0L
-    private var lastFrameAtMs: Long = 0L
+    private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = ContextCompat.getColor(context, R.color.overlay_waveform)
+        style = Paint.Style.FILL
+    }
+
+    private val spacingPx = dp(6.5f)
+    private val dotRadiusPx = dp(4f)
+    private val minBarHeightPx = dp(2.5f)
+
+    private var mode = WaveformMode.Idle
+
+    /*
+     * Ring buffer of amplitude targets.
+     * Index 0 = center (most recent sample), higher indices = further out (older).
+     * Bars are drawn mirrored: position ±i from center uses targetHeights[i].
+     */
+    private val totalSlots = HALF_BARS + 1
+    private val targetHeights = FloatArray(totalSlots)
+    private val displayedHeights = FloatArray(totalSlots)
+
+    /* Accumulate peak amplitude between sample pushes. */
+    private var pendingPeak = 0f
+    private var lastSamplePushMs = 0L
+
+    /* Animation bookkeeping. */
+    private var lastFrameMs = 0L
+    private var phase = 0f
+
+    // ----- public API (unchanged) -----
 
     fun showRecordingState() {
         mode = WaveformMode.Recording
-        displayedLevel = max(displayedLevel, 0.15f)
-        targetLevel = max(targetLevel, 0.18f)
         ensureAnimating()
     }
 
     fun showTranscribingState() {
         mode = WaveformMode.Transcribing
-        targetLevel = 0.34f
         ensureAnimating()
     }
 
     fun reset() {
         mode = WaveformMode.Idle
-        targetLevel = MIN_BAR_SCALE
-        displayedLevel = MIN_BAR_SCALE
-        lastAmplitudeAtMs = 0L
-        lastFrameAtMs = 0L
+        targetHeights.fill(0f)
+        displayedHeights.fill(0f)
+        pendingPeak = 0f
+        lastSamplePushMs = 0L
+        lastFrameMs = 0L
         phase = 0f
         invalidate()
     }
 
     fun setAmplitude(amplitude: Int) {
         mode = WaveformMode.Recording
-        targetLevel = normalizeAmplitude(amplitude)
-        lastAmplitudeAtMs = SystemClock.uptimeMillis()
+        val normalized = normalizeAmplitude(amplitude)
+        pendingPeak = max(pendingPeak, normalized)
+
+        val now = SystemClock.uptimeMillis()
+        if (lastSamplePushMs == 0L) lastSamplePushMs = now
+        if (now - lastSamplePushMs >= SAMPLE_INTERVAL_MS) {
+            pushSample(pendingPeak)
+            pendingPeak = 0f
+            lastSamplePushMs = now
+        }
         ensureAnimating()
     }
 
+    // ----- rendering -----
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-
-        if (width == 0 || height == 0) {
-            return
-        }
+        if (width == 0 || height == 0) return
 
         val now = SystemClock.uptimeMillis()
-        val deltaMs = if (lastFrameAtMs == 0L) {
-            FRAME_TIME_MS
+        val deltaMs = if (lastFrameMs == 0L) FRAME_TIME_MS else (now - lastFrameMs).coerceIn(1, 48)
+        lastFrameMs = now
+        stepAnimation(deltaMs)
+
+        val cx = width / 2f
+        val cy = height / 2f
+
+        if (mode == WaveformMode.Transcribing) {
+            drawTranscribingDot(canvas, cx, cy)
+        } else if (maxDisplayed() < VISIBILITY_THRESHOLD) {
+            drawIdleDot(canvas, cx, cy)
         } else {
-            (now - lastFrameAtMs).coerceIn(1L, 48L)
-        }
-        lastFrameAtMs = now
-        updateAnimation(now, deltaMs)
-
-        val centerY = height / 2f
-        val totalWidth = (BAR_COUNT - 1) * spacingPx
-        val startX = (width - totalWidth) / 2f
-        val maxHeight = height * 0.46f
-        for (index in 0 until BAR_COUNT) {
-            val x = startX + index * spacingPx
-            val normalizedIndex = index.toFloat() / (BAR_COUNT - 1)
-            val centerDistance = abs((normalizedIndex - 0.5f) * 2f)
-            val envelope = 1f - centerDistance.pow(1.65f)
-            val wave = 0.45f + (0.55f * abs(sin(phase + (index * 0.43f))))
-            val shimmer = 0.78f + (0.22f * abs(sin((phase * 0.53f) - (index * 0.18f))))
-            val dynamicScale = 0.12f + (displayedLevel * envelope * wave * shimmer)
-            val barHeight = (maxHeight * dynamicScale).coerceAtLeast(dp(3f))
-            canvas.drawLine(x, centerY - barHeight, x, centerY + barHeight, paint)
+            drawBars(canvas, cx, cy)
         }
 
-        if (mode != WaveformMode.Idle || displayedLevel > (MIN_BAR_SCALE + 0.01f)) {
-            postInvalidateOnAnimation()
+        if (shouldKeepAnimating()) postInvalidateOnAnimation()
+    }
+
+    private fun drawIdleDot(canvas: Canvas, cx: Float, cy: Float) {
+        dotPaint.alpha = 255
+        canvas.drawCircle(cx, cy, dotRadiusPx, dotPaint)
+    }
+
+    private fun drawTranscribingDot(canvas: Canvas, cx: Float, cy: Float) {
+        val pulse = (0.5f + 0.5f * sin(phase.toDouble())).toFloat() // 0‥1
+        val radius = dotRadiusPx * (1f + pulse * 0.55f)
+        dotPaint.alpha = (185 + (70 * pulse)).toInt().coerceIn(0, 255)
+        canvas.drawCircle(cx, cy, radius, dotPaint)
+        dotPaint.alpha = 255
+    }
+
+    private fun drawBars(canvas: Canvas, cx: Float, cy: Float) {
+        val maxH = height * 0.44f
+
+        // Center bar (index 0).
+        val centerH = barHeight(0, maxH)
+        if (centerH >= minBarHeightPx * 0.5f) {
+            canvas.drawLine(cx, cy - centerH, cx, cy + centerH, barPaint)
+        } else {
+            // Fall back to dot when center bar is tiny.
+            drawIdleDot(canvas, cx, cy)
+        }
+
+        // Symmetric bars radiating outward.
+        for (i in 1 until totalSlots) {
+            val h = barHeight(i, maxH)
+            if (h < minBarHeightPx * 0.5f) continue
+            val offset = i * spacingPx
+            canvas.drawLine(cx - offset, cy - h, cx - offset, cy + h, barPaint)
+            canvas.drawLine(cx + offset, cy - h, cx + offset, cy + h, barPaint)
         }
     }
 
-    private fun updateAnimation(now: Long, deltaMs: Long) {
+    /** Compute the pixel height for a bar, including a subtle per-bar shimmer. */
+    private fun barHeight(index: Int, maxH: Float): Float {
+        val level = displayedHeights[index]
+        if (level < VISIBILITY_THRESHOLD) return 0f
+        // Subtle shimmer keeps bars from looking static.
+        val shimmer = 0.88f + 0.12f * abs(sin(phase * 1.1f + index * 1.4f))
+        return max(minBarHeightPx, level * shimmer * maxH)
+    }
+
+    // ----- animation -----
+
+    private fun stepAnimation(deltaMs: Long) {
+        phase += deltaMs * when (mode) {
+            WaveformMode.Transcribing -> 0.0045f
+            else -> 0.012f
+        }
+
         when (mode) {
-            WaveformMode.Idle -> {
-                targetLevel = MIN_BAR_SCALE
-            }
-
             WaveformMode.Recording -> {
-                if (lastAmplitudeAtMs == 0L || now - lastAmplitudeAtMs > 80L) {
-                    targetLevel = max(MIN_BAR_SCALE, targetLevel * 0.9f)
-                }
+                // Gently decay targets so old bars taper off.
+                val decay = 0.997f.pow(deltaMs.toFloat())
+                for (i in targetHeights.indices) targetHeights[i] *= decay
             }
-
+            WaveformMode.Idle -> {
+                val decay = 0.88f.pow(deltaMs / FRAME_TIME_MS.toFloat())
+                for (i in targetHeights.indices) targetHeights[i] *= decay
+            }
             WaveformMode.Transcribing -> {
-                targetLevel = 0.28f + (0.08f * (0.5f + (0.5f * sin(phase * 0.8f))))
+                val decay = 0.92f.pow(deltaMs / FRAME_TIME_MS.toFloat())
+                for (i in displayedHeights.indices) displayedHeights[i] *= decay
             }
         }
 
-        val smoothing = when (mode) {
-            WaveformMode.Recording -> 0.35f
-            WaveformMode.Transcribing -> 0.18f
-            WaveformMode.Idle -> 0.16f
+        // Smooth displayed heights toward targets.
+        val riseFactor = 0.40f
+        val fallFactor = 0.10f
+        for (i in displayedHeights.indices) {
+            val diff = targetHeights[i] - displayedHeights[i]
+            val factor = if (diff > 0) riseFactor else fallFactor
+            displayedHeights[i] += diff * factor
+            if (displayedHeights[i] < 0.001f) displayedHeights[i] = 0f
         }
-        displayedLevel += (targetLevel - displayedLevel) * smoothing
-        phase += deltaMs * if (mode == WaveformMode.Transcribing) 0.010f else 0.018f
+    }
+
+    private fun shouldKeepAnimating(): Boolean =
+        mode != WaveformMode.Idle || displayedHeights.any { it > 0.002f }
+
+    // ----- helpers -----
+
+    private fun pushSample(level: Float) {
+        // Shift everything outward (older samples move to higher indices).
+        for (i in targetHeights.size - 1 downTo 1) {
+            targetHeights[i] = targetHeights[i - 1]
+        }
+        targetHeights[0] = level
+    }
+
+    private fun maxDisplayed(): Float {
+        var m = 0f
+        for (v in displayedHeights) if (v > m) m = v
+        return m
     }
 
     private fun normalizeAmplitude(amplitude: Int): Float {
-        val clampedAmplitude = amplitude.coerceAtLeast(0).toFloat()
-        val normalized = ln(1f + clampedAmplitude) / ln(1f + MAX_AMPLITUDE)
-        return min(1f, max(0.18f, normalized))
+        val clamped = amplitude.coerceAtLeast(0).toFloat()
+        val normalized = ln(1f + clamped) / ln(1f + MAX_AMPLITUDE)
+        return min(1f, max(0.04f, normalized))
     }
 
     private fun ensureAnimating() {
-        if (!isAttachedToWindow) {
-            invalidate()
-            return
-        }
+        if (!isAttachedToWindow) { invalidate(); return }
         postInvalidateOnAnimation()
     }
 
-    private fun dp(value: Float): Float {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            value,
-            resources.displayMetrics,
-        )
-    }
+    private fun dp(value: Float): Float =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, resources.displayMetrics)
 }
