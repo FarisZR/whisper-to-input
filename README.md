@@ -75,6 +75,18 @@ The STT/ASR backend service can be either [OpenAI API](https://platform.openai.c
 
 8. Click the microphone button to start recording. After you finish speaking, click the microphone button again. The recognized text will be inputted into the text box.
 
+## Huawei hardware dictation takeover
+
+This app also supports a Huawei-style hold-to-dictate flow with a floating overlay.
+
+- Long-press the Huawei hardware dictation key while a text field is focused.
+- The current keyboard hides and a draggable overlay appears in the bottom right.
+- Recording continues while the key is held.
+- Releasing the key stops recording, sends audio to Whisper, inserts the transcript, dismisses the overlay, and restores the previous keyboard.
+- A very short hold shows `Recording too short.` instead of sending audio.
+
+Setup instructions and Huawei keyboard replacement notes are in `docs/huawei-dictation-setup.md`.
+
 ## Keyboard Usage
 
 <img src='docs/images/keyboard-layout.jpg' width='200'>
@@ -238,6 +250,8 @@ adb logcat *:V
 ```
 
 See [the adb doc](https://developer.android.com/tools/logcat) for more info.
+
+If you are replacing the Huawei/Celia dictation path, see `docs/huawei-dictation-setup.md` for the package disable and re-enable commands.
 
 ## Permission Description
 
