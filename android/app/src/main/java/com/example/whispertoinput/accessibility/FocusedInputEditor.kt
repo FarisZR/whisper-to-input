@@ -5,6 +5,7 @@ import android.accessibilityservice.InputMethod
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
+import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
 private const val NEW_CURSOR_POSITION = 1
@@ -44,13 +45,28 @@ fun buildUpdatedText(
 class FocusedInputEditor(
     private val accessibilityService: AccessibilityService,
 ) {
-    fun findFocusedEditableNode(): AccessibilityNodeInfo? {
-        val focusedNode = accessibilityService.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        return if (isEditableTarget(focusedNode)) {
-            focusedNode
-        } else {
-            null
+    private var lastFocusedEditableNode: AccessibilityNodeInfo? = null
+
+    fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event == null || !shouldTrackFocusEvent(event)) {
+            return
         }
+        val candidate = findEditableCandidate(event?.source)
+        if (candidate != null) {
+            rememberFocusedNode(candidate)
+        }
+    }
+
+    fun findFocusedEditableNode(allowRememberedNode: Boolean = true): AccessibilityNodeInfo? {
+        if (allowRememberedNode) {
+            val cachedNode = refreshedEditableNode(lastFocusedEditableNode)
+            if (cachedNode != null) {
+                lastFocusedEditableNode = cachedNode
+                return cachedNode
+            }
+        }
+
+        return findLiveFocusedEditableNode()
     }
 
     fun insertText(text: String): Boolean {
@@ -87,5 +103,85 @@ class FocusedInputEditor(
             )
         }
         return focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+    }
+
+    fun rememberFocusedNode(node: AccessibilityNodeInfo?) {
+        val editableNode = refreshedEditableNode(node) ?: findEditableCandidate(node) ?: return
+        clearRememberedNode()
+        lastFocusedEditableNode = editableNode
+    }
+
+    private fun clearRememberedNode() {
+        lastFocusedEditableNode?.recycle()
+        lastFocusedEditableNode = null
+    }
+
+    private fun refreshedEditableNode(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        val candidate = node ?: return null
+        if (!candidate.refresh()) {
+            return null
+        }
+        return candidate.takeIf(::isEditableTarget)
+    }
+
+    private fun findLiveFocusedEditableNode(): AccessibilityNodeInfo? {
+        val rootNode = accessibilityService.rootInActiveWindow ?: run {
+            clearRememberedNode()
+            return null
+        }
+
+        val inputFocusedNode = findEditableCandidate(rootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT))
+        if (inputFocusedNode != null) {
+            rememberFocusedNode(inputFocusedNode)
+            return inputFocusedNode
+        }
+
+        val accessibilityFocusedNode = findEditableCandidate(rootNode.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY))
+        if (accessibilityFocusedNode != null) {
+            rememberFocusedNode(accessibilityFocusedNode)
+            return accessibilityFocusedNode
+        }
+
+        val descendantFocusedNode = findFocusedEditableDescendant(rootNode)
+        if (descendantFocusedNode != null) {
+            rememberFocusedNode(descendantFocusedNode)
+            return descendantFocusedNode
+        }
+
+        clearRememberedNode()
+        return null
+    }
+
+    private fun findEditableCandidate(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        var currentNode = node
+        while (currentNode != null) {
+            if (isEditableTarget(currentNode)) {
+                return AccessibilityNodeInfo.obtain(currentNode)
+            }
+            currentNode = currentNode.parent
+        }
+        return null
+    }
+
+    private fun findFocusedEditableDescendant(rootNode: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.add(rootNode)
+
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+            if (isEditableTarget(node) && (node.isFocused || node.isAccessibilityFocused)) {
+                return AccessibilityNodeInfo.obtain(node)
+            }
+            for (index in 0 until node.childCount) {
+                node.getChild(index)?.let(queue::addLast)
+            }
+        }
+
+        return null
+    }
+
+    private fun shouldTrackFocusEvent(event: AccessibilityEvent): Boolean {
+        return event.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
+            event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED
     }
 }

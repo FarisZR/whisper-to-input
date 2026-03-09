@@ -62,7 +62,9 @@ class OverlayDictationAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        Unit
+        if (::focusedInputEditor.isInitialized) {
+            focusedInputEditor.onAccessibilityEvent(event)
+        }
     }
 
     override fun onInterrupt() {
@@ -124,7 +126,7 @@ class OverlayDictationAccessibilityService : AccessibilityService() {
         if (!::overlayController.isInitialized || !::sessionController.isInitialized) {
             return
         }
-        val focusedNode = focusedInputEditor.findFocusedEditableNode()
+        val focusedNode = focusedInputEditor.findFocusedEditableNode(allowRememberedNode = false)
         if (requireEditableFocus && !isEditableTarget(focusedNode)) {
             Log.d(ACCESSIBILITY_TAG, "Shortcut ignored because no editable field is focused")
             showToast(R.string.overlay_focus_required)
