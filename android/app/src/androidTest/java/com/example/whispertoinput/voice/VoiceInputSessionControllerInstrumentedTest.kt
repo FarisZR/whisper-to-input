@@ -132,6 +132,7 @@ class VoiceInputSessionControllerInstrumentedTest {
     private class FakeCallbacks : VoiceInputSessionController.Callbacks {
         var permissionsMissing: Boolean = false
         var tooShort: Boolean = false
+        var noMatch: Boolean = false
         var result: String? = null
 
         override fun onStateChanged(state: VoiceInputSessionState) = Unit
@@ -147,6 +148,10 @@ class VoiceInputSessionControllerInstrumentedTest {
         }
 
         override fun onRecordingError() = Unit
+
+        override fun onNoTranscriptionMatch() {
+            noMatch = true
+        }
 
         override fun onTranscriptionResult(text: String) {
             result = text

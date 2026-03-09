@@ -27,6 +27,7 @@ import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.example.whispertoinput.R
+import com.example.whispertoinput.voice.VoiceSessionRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,11 +38,10 @@ import java.io.IOException
 
 private const val MEDIA_RECORDER_CONSTRUCTOR_DEPRECATION_API_LEVEL = 31
 
-class RecorderManager(context: Context) {
+class RecorderManager(context: Context) : VoiceSessionRecorder {
     companion object {
         fun requiredPermissions() = arrayOf(
             Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.POST_NOTIFICATIONS,
         )
     }
 
@@ -57,7 +57,7 @@ class RecorderManager(context: Context) {
             context.resources.getInteger(R.integer.recorder_amplitude_report_period).toLong()
     }
 
-    fun start(context: Context, filename: String, useOggFormat: Boolean = false) {
+    override fun start(context: Context, filename: String, useOggFormat: Boolean) {
         recorder?.apply {
             stop()
             release()
@@ -111,7 +111,7 @@ class RecorderManager(context: Context) {
         }
     }
 
-    fun stop(): Boolean {
+    override fun stop(): Boolean {
         var stoppedCleanly = true
         recorder?.apply {
             try {
@@ -135,6 +135,10 @@ class RecorderManager(context: Context) {
         this.onUpdateMicrophoneAmplitude = onUpdateMicrophoneAmplitude
     }
 
+    override fun setOnAmplitudeUpdate(listener: (Int) -> Unit) {
+        setOnUpdateMicrophoneAmplitude(listener)
+    }
+
     // Returns whether all of the permissions are granted.
     fun allPermissionsGranted(context: Context): Boolean {
         for (permission in requiredPermissions()) {
@@ -148,5 +152,9 @@ class RecorderManager(context: Context) {
         }
 
         return true
+    }
+
+    override fun hasPermissions(context: Context): Boolean {
+        return allPermissionsGranted(context)
     }
 }

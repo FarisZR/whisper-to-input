@@ -23,7 +23,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import androidx.core.app.ActivityCompat
 import android.Manifest
-import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -39,13 +39,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doOnTextChanged
-import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,21 +54,8 @@ import com.example.whispertoinput.accessibility.defaultKeyboardShortcut
 import com.example.whispertoinput.accessibility.formatKeyboardShortcut
 import com.example.whispertoinput.accessibility.toKeyboardShortcut
 
-// 200 and 201 are an arbitrary values, as long as they do not conflict with each other
+// 200 is an arbitrary value as long as it does not conflict with another request code
 private const val MICROPHONE_PERMISSION_REQUEST_CODE = 200
-private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 201
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-val SPEECH_TO_TEXT_BACKEND = stringPreferencesKey("speech-to-text-backend")
-val ENDPOINT = stringPreferencesKey("endpoint")
-val LANGUAGE_CODE = stringPreferencesKey("language-code")
-val API_KEY = stringPreferencesKey("api-key")
-val MODEL = stringPreferencesKey("model")
-val AUTO_RECORDING_START = booleanPreferencesKey("is-auto-recording-start")
-val AUTO_SWITCH_BACK = booleanPreferencesKey("auto-switch-back")
-val ADD_TRAILING_SPACE = booleanPreferencesKey("add-trailing-space")
-val POSTPROCESSING = stringPreferencesKey("postprocessing")
-val SHORTCUT_KEY_CODE = intPreferencesKey("shortcut-key-code")
-val SHORTCUT_MODIFIERS = intPreferencesKey("shortcut-modifiers")
 
 class MainActivity : AppCompatActivity() {
     private data class ShortcutPreset(
@@ -110,11 +92,18 @@ class MainActivity : AppCompatActivity() {
         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
+    fun onOpenVoiceInputSettings(view: View) {
+        try {
+            startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
+        } catch (_: ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_SETTINGS))
+        }
+    }
+
     // Checks whether permissions are granted. If not, automatically make a request.
     private fun checkPermissions() {
         val permission_and_code = arrayOf(
             Pair(Manifest.permission.RECORD_AUDIO, MICROPHONE_PERMISSION_REQUEST_CODE),
-            Pair(Manifest.permission.POST_NOTIFICATIONS, NOTIFICATION_PERMISSION_REQUEST_CODE),
         )
         for ((permission, code) in permission_and_code) {
             if (ContextCompat.checkSelfPermission(
@@ -146,8 +135,6 @@ class MainActivity : AppCompatActivity() {
         // Only handles requests marked with the unique code.
         if (requestCode == MICROPHONE_PERMISSION_REQUEST_CODE) {
             msg = getString(R.string.mic_permission_required)
-        } else if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
-            msg = getString(R.string.notification_permission_required)
         } else {
             return
         }

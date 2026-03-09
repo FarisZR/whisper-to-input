@@ -11,13 +11,11 @@ import android.view.accessibility.AccessibilityEvent
 import android.widget.Toast
 import com.example.whispertoinput.MainActivity
 import com.example.whispertoinput.R
-import com.example.whispertoinput.dataStore
 import com.example.whispertoinput.WhisperTranscriber
+import com.example.whispertoinput.dataStore
 import com.example.whispertoinput.recorder.RecorderManager
 import com.example.whispertoinput.voice.VoiceInputSessionState
 import com.example.whispertoinput.voice.VoiceInputSessionController
-import com.example.whispertoinput.voice.VoiceSessionRecorder
-import com.example.whispertoinput.voice.VoiceSessionTranscriber
 import com.example.whispertoinput.voice.loadVoiceInputConfig
 import com.github.liuyueyi.quick.transfer.ChineseUtils
 import com.github.liuyueyi.quick.transfer.constants.TransType
@@ -44,8 +42,8 @@ class OverlayDictationAccessibilityService : AccessibilityService() {
         recorderManager = RecorderManager(this)
         sessionController = VoiceInputSessionController(
             context = this,
-            recorder = RecorderAdapter(recorderManager),
-            transcriber = TranscriberAdapter(WhisperTranscriber()),
+            recorder = recorderManager,
+            transcriber = WhisperTranscriber(),
             minimumRecordingDurationMs = resources.getInteger(R.integer.dictation_min_recording_duration_ms).toLong(),
             nowMs = { SystemClock.elapsedRealtime() },
             callbacks = SessionCallbacks(),
@@ -224,6 +222,13 @@ class OverlayDictationAccessibilityService : AccessibilityService() {
             showToast(R.string.dictation_recording_failed)
         }
 
+        override fun onNoTranscriptionMatch() {
+            Log.d(ACCESSIBILITY_TAG, "No speech matched the request")
+            overlayController.hide()
+            restoreKeyboardIfNeeded()
+            showToast(R.string.dictation_empty_result)
+        }
+
         override fun onTranscriptionResult(text: String) {
             handleTranscriptionResult(text)
         }
@@ -233,45 +238,6 @@ class OverlayDictationAccessibilityService : AccessibilityService() {
             overlayController.hide()
             restoreKeyboardIfNeeded()
             Toast.makeText(this@OverlayDictationAccessibilityService, message, Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private class RecorderAdapter(
-        private val recorderManager: RecorderManager,
-    ) : VoiceSessionRecorder {
-        override fun hasPermissions(context: android.content.Context): Boolean {
-            return recorderManager.allPermissionsGranted(context)
-        }
-
-        override fun start(context: android.content.Context, filename: String, useOggFormat: Boolean) {
-            recorderManager.start(context, filename, useOggFormat)
-        }
-
-        override fun stop(): Boolean {
-            return recorderManager.stop()
-        }
-
-        override fun setOnAmplitudeUpdate(listener: (Int) -> Unit) {
-            recorderManager.setOnUpdateMicrophoneAmplitude(listener)
-        }
-    }
-
-    private class TranscriberAdapter(
-        private val transcriber: WhisperTranscriber,
-    ) : VoiceSessionTranscriber {
-        override fun startAsync(
-            context: android.content.Context,
-            filename: String,
-            mediaType: String,
-            attachToEnd: String,
-            callback: (String?) -> Unit,
-            exceptionCallback: (String) -> Unit,
-        ) {
-            transcriber.startAsync(context, filename, mediaType, attachToEnd, callback, exceptionCallback)
-        }
-
-        override fun stop() {
-            transcriber.stop()
         }
     }
 }

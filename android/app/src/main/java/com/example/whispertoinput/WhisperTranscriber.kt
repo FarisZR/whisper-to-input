@@ -34,8 +34,9 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import com.github.liuyueyi.quick.transfer.ChineseUtils
+import com.example.whispertoinput.voice.VoiceSessionTranscriber
 
-class WhisperTranscriber {
+class WhisperTranscriber : VoiceSessionTranscriber {
     private data class Config(
         val endpoint: String,
         val languageCode: String,
@@ -49,7 +50,7 @@ class WhisperTranscriber {
     private val TAG = "WhisperTranscriber"
     private var currentTranscriptionJob: Job? = null
 
-    fun startAsync(
+    override fun startAsync(
         context: Context,
         filename: String,
         mediaType: String,
@@ -153,7 +154,7 @@ class WhisperTranscriber {
         registerTranscriptionJob(job)
     }
 
-    fun stop() {
+    override fun stop() {
         registerTranscriptionJob(null)
     }
 

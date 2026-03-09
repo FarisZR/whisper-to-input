@@ -44,6 +44,7 @@ class VoiceInputSessionController(
         fun onPermissionsMissing()
         fun onTooShort()
         fun onRecordingError()
+        fun onNoTranscriptionMatch()
         fun onTranscriptionResult(text: String)
         fun onTranscriptionError(message: String)
     }
@@ -126,7 +127,7 @@ class VoiceInputSessionController(
                 } else {
                     currentConfig = null
                     updateState(VoiceInputSessionState.Idle)
-                    callbacks.onTranscriptionError(context.getString(R.string.dictation_empty_result))
+                    callbacks.onNoTranscriptionMatch()
                 }
             },
             exceptionCallback = { message ->
