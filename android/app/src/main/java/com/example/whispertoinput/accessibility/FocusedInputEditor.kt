@@ -186,7 +186,8 @@ class FocusedInputEditor(
 
             if (isEditableTarget(node) && (node.isFocused || node.isAccessibilityFocused)) {
                 val result = AccessibilityNodeInfo.obtain(node)
-                queue.removeIf { it !== rootNode }.forEach { it.recycle() }
+                queue.removeIf { it === rootNode }
+                queue.forEach { it.recycle() }
                 return result
             }
 
