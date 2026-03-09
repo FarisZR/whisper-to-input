@@ -125,6 +125,17 @@
                 style="@style/SettingsDescription"
                 android:text="@string/settings_overlay_shortcut_desc" />
             <TextView
+                android:id="@+id/label_overlay_shortcut_preset"
+                style="@style/SettingsLabel"
+                android:text="@string/settings_overlay_shortcut_preset" />
+            <Spinner
+                android:id="@+id/spinner_overlay_shortcut_preset"
+                style="@style/SettingsSpinner" />
+            <TextView
+                android:id="@+id/label_overlay_shortcut_current"
+                style="@style/SettingsLabel"
+                android:text="@string/settings_overlay_shortcut_current" />
+            <TextView
                 android:id="@+id/value_overlay_shortcut"
                 style="@style/SettingsDescription"
                 android:fontFamily="monospace"

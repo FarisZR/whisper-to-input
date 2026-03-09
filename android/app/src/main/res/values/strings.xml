@@ -46,8 +46,11 @@
     <string name="settings_speech_to_text_backend">Speech to Text Backend</string>
     <string name="settings_speech_to_text_backend_desc">Use the official OpenAI API, Whisper ASR Webservice, or NVIDIA NIM backend.</string>
     <string name="settings_overlay_shortcut">Overlay Shortcut</string>
-    <string name="settings_overlay_shortcut_desc">Choose any keyboard shortcut with at least one modifier. The shortcut opens the floating dictation overlay and stops recording on the next press.</string>
-    <string name="settings_overlay_shortcut_capture_button">Capture Shortcut</string>
+    <string name="settings_overlay_shortcut_desc">Pick a common shortcut or capture your own with at least one modifier. The shortcut opens the floating dictation overlay and stops recording on the next press.</string>
+    <string name="settings_overlay_shortcut_preset">Shortcut preset</string>
+    <string name="settings_overlay_shortcut_current">Current shortcut</string>
+    <string name="settings_overlay_shortcut_custom_option">Custom</string>
+    <string name="settings_overlay_shortcut_capture_button">Capture Custom Shortcut</string>
     <string name="settings_overlay_shortcut_capture_listening">Press shortcut…</string>
     <string name="settings_overlay_shortcut_capture_toast">Press the shortcut you want to use. Press Escape to cancel.</string>
     <string name="settings_overlay_shortcut_requires_modifier">Use at least one modifier key like Ctrl, Alt, Shift, or Meta.</string>

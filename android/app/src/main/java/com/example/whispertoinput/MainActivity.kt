@@ -31,6 +31,7 @@ import android.provider.*
 import android.view.KeyEvent
 import android.view.View
 import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Spinner
@@ -54,6 +55,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import com.example.whispertoinput.accessibility.KeyboardShortcut
 import com.example.whispertoinput.accessibility.captureKeyboardShortcut
+import com.example.whispertoinput.accessibility.defaultKeyboardShortcut
 import com.example.whispertoinput.accessibility.formatKeyboardShortcut
 import com.example.whispertoinput.accessibility.toKeyboardShortcut
 
@@ -74,6 +76,11 @@ val SHORTCUT_KEY_CODE = intPreferencesKey("shortcut-key-code")
 val SHORTCUT_MODIFIERS = intPreferencesKey("shortcut-modifiers")
 
 class MainActivity : AppCompatActivity() {
+    private data class ShortcutPreset(
+        val label: String,
+        val shortcut: KeyboardShortcut?,
+    )
+
     private var setupSettingItemsDone: Boolean = false
     private var shortcutCaptureSetting: SettingShortcutCapture? = null
 
@@ -329,16 +336,95 @@ class MainActivity : AppCompatActivity() {
 
     inner class SettingShortcutCapture(
         private val valueViewId: Int,
+        private val presetSpinnerViewId: Int,
         private val buttonViewId: Int,
     ) : SettingItem() {
         private var shortcut: KeyboardShortcut = KeyboardShortcut(0, 0)
         private var capturing: Boolean = false
+        private var updatingPresetSelection: Boolean = false
+
+        private val presetOptions: List<ShortcutPreset> by lazy {
+            listOf(
+                ShortcutPreset(
+                    formatKeyboardShortcut(defaultKeyboardShortcut()),
+                    defaultKeyboardShortcut(),
+                ),
+                ShortcutPreset(
+                    formatKeyboardShortcut(
+                        KeyboardShortcut(
+                            keyCode = KeyEvent.KEYCODE_SPACE,
+                            modifiers = KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON,
+                        ),
+                    ),
+                    KeyboardShortcut(
+                        keyCode = KeyEvent.KEYCODE_SPACE,
+                        modifiers = KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON,
+                    ),
+                ),
+                ShortcutPreset(
+                    formatKeyboardShortcut(
+                        KeyboardShortcut(
+                            keyCode = KeyEvent.KEYCODE_D,
+                            modifiers = KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON,
+                        ),
+                    ),
+                    KeyboardShortcut(
+                        keyCode = KeyEvent.KEYCODE_D,
+                        modifiers = KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON,
+                    ),
+                ),
+                ShortcutPreset(
+                    formatKeyboardShortcut(
+                        KeyboardShortcut(
+                            keyCode = KeyEvent.KEYCODE_D,
+                            modifiers = KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON,
+                        ),
+                    ),
+                    KeyboardShortcut(
+                        keyCode = KeyEvent.KEYCODE_D,
+                        modifiers = KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON,
+                    ),
+                ),
+                ShortcutPreset(
+                    getString(R.string.settings_overlay_shortcut_custom_option),
+                    null,
+                ),
+            )
+        }
 
         override fun setup(): Job {
             return CoroutineScope(Dispatchers.Main).launch {
                 val btnApply: Button = findViewById(R.id.btn_settings_apply)
+                val presetSpinner = findViewById<Spinner>(presetSpinnerViewId)
+                presetSpinner.isEnabled = false
+                presetSpinner.adapter = ArrayAdapter(
+                    this@MainActivity,
+                    android.R.layout.simple_spinner_item,
+                    presetOptions.map { it.label },
+                ).apply {
+                    setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                }
+                presetSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(parent: AdapterView<*>, view: View?, pos: Int, id: Long) {
+                        if (!setupSettingItemsDone || updatingPresetSelection) {
+                            return
+                        }
+                        val selectedShortcut = presetOptions[pos].shortcut ?: return
+                        if (selectedShortcut == shortcut) {
+                            return
+                        }
+                        shortcut = selectedShortcut
+                        isDirty = true
+                        updateViews()
+                        btnApply.isEnabled = true
+                    }
+
+                    override fun onNothingSelected(parent: AdapterView<*>) {
+                    }
+                }
                 shortcut = dataStore.data.map { preferences -> preferences.toKeyboardShortcut() }.first()
                 updateViews()
+                presetSpinner.isEnabled = true
 
                 findViewById<Button>(buttonViewId).setOnClickListener {
                     capturing = !capturing
@@ -401,6 +487,14 @@ class MainActivity : AppCompatActivity() {
 
         private fun updateViews() {
             findViewById<TextView>(valueViewId).text = formatKeyboardShortcut(shortcut)
+            val presetSpinner = findViewById<Spinner>(presetSpinnerViewId)
+            val selectedPresetIndex = presetOptions.indexOfFirst { it.shortcut == shortcut }
+            updatingPresetSelection = true
+            presetSpinner.setSelection(
+                if (selectedPresetIndex >= 0) selectedPresetIndex else presetOptions.lastIndex,
+                false,
+            )
+            updatingPresetSelection = false
             findViewById<Button>(buttonViewId).text = if (capturing) {
                 getString(R.string.settings_overlay_shortcut_capture_listening)
             } else {
@@ -443,6 +537,7 @@ class MainActivity : AppCompatActivity() {
             )
             shortcutCaptureSetting = SettingShortcutCapture(
                 R.id.value_overlay_shortcut,
+                R.id.spinner_overlay_shortcut_preset,
                 R.id.btn_capture_overlay_shortcut,
             )
             val btnApply: Button = findViewById(R.id.btn_settings_apply)
