@@ -19,10 +19,9 @@ The STT/ASR backend service can be either [OpenAI API](https://platform.openai.c
    <img src='docs/images/04-unsafe-app-install-anyway.jpg' width='200'>
    <img src='docs/images/05-app-installed.jpg' width='200'>
 
-4. Allow the app to record audio and send notifications. These permissions are required for the app to work properly. If you accidentally denied the permissions, you must go to the app settings page to allow them.
+4. Allow the app to record audio. If you accidentally denied the permission, you must go to the app settings page to allow it.
 
    <img src='docs/images/06-record-audio-permission.jpg' width='200'>
-   <!-- TODO: Add send notification permission screenshot -->
 
 5. Go to the app settings page and enter your configuration. You have 2 choices, either using the official OpenAI API with [your API key](https://platform.openai.com/api-keys) or self-host a [Whisper ASR Webservice](https://github.com/ahmetoner/whisper-asr-webservice). For more information, see the [Services](#services) section.
 
@@ -86,6 +85,17 @@ This app also supports a floating dictation overlay that opens from a configurab
 - A very short recording shows `Recording too short.` instead of sending audio.
 
 Setup instructions are in `docs/overlay-shortcut-dictation.md`.
+
+## Android speech recognizer
+
+This app can also act as the default Android speech recognizer for apps that use the system speech-to-text service.
+
+- Open `Whisper To Input`.
+- Configure the speech-to-text backend.
+- Tap `Open Voice Input Settings`.
+- Select `Whisper speech recognizer` as the default recognizer.
+
+After that, apps that use Android's default `SpeechRecognizer` service should route speech-to-text through Whisper To Input.
 
 ## Keyboard Usage
 
@@ -256,7 +266,6 @@ If you use the floating overlay mode, see `docs/overlay-shortcut-dictation.md` f
 ## Permission Description
 
 - `RECORD_AUDIO`: Required for the app to record audio for voice input.
-- `POST_NOTIFICATIONS`: Required for the app to show toasts in the background if any error occurs.
 
 ## FAQ and Known Issues
 

@@ -101,6 +101,22 @@
                 android:onClick="onOpenAccessibilitySettings"
                 android:text="@string/settings_open_accessibility" />
 
+            <TextView
+                android:id="@+id/label_voice_input_setup"
+                style="@style/SettingsLabel"
+                android:text="@string/settings_voice_input_setup" />
+            <TextView
+                android:id="@+id/description_voice_input_setup"
+                style="@style/SettingsDescription"
+                android:text="@string/settings_voice_input_setup_desc" />
+            <Button
+                android:id="@+id/btn_open_voice_input_settings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:onClick="onOpenVoiceInputSettings"
+                android:text="@string/settings_open_voice_input" />
+
             <!-- Speech to Text Backend -->
             <TextView
                 android:id="@+id/label_speech_to_text_backend"

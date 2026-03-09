@@ -13,7 +13,6 @@
     <string name="start_transcribing">Start transcribing.</string>
     <string name="grant_microphone_permission">Grant Microphone Permission</string>
     <string name="mic_permission_required">Whisper to Input requires microphone permission to work.</string>
-    <string name="notification_permission_required">Whisper to Input requires notification permission to work.</string>
     <string name="microphone">Microphone</string>
     <string name="successfully_set">Successfully set!</string>
     <string name="dictation_too_short">Recording too short.</string>
@@ -32,9 +31,13 @@
     <string name="accessibility_service_label">Overlay shortcut dictation</string>
     <string name="accessibility_service_summary">Open a Whisper dictation overlay from a keyboard shortcut.</string>
     <string name="accessibility_service_description">Listens for the configured keyboard shortcut, shows a floating dictation overlay, records until you stop it, and inserts the Whisper transcript into the focused text field.</string>
+    <string name="speech_recognition_service_label">Whisper speech recognizer</string>
     <string name="settings_accessibility_setup">Overlay Dictation Shortcut</string>
     <string name="settings_accessibility_setup_desc">Enable the accessibility service so the keyboard shortcut can hide the current keyboard, show the floating overlay, and restore your keyboard when transcription finishes.</string>
     <string name="settings_open_accessibility">Open Accessibility Settings</string>
+    <string name="settings_voice_input_setup">Speech Recognition Service</string>
+    <string name="settings_voice_input_setup_desc">Choose Whisper To Input as the default Android speech recognizer for apps that use the system voice input service.</string>
+    <string name="settings_open_voice_input">Open Voice Input Settings</string>
 
     <!-- Warning and Error Messages -->
     <string name="error_endpoint_unset">Error: Endpoint is not set in settings.</string>
