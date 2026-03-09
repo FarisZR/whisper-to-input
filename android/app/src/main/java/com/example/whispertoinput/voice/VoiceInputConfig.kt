@@ -1,6 +1,8 @@
 package com.example.whispertoinput.voice
 
 import android.content.Context
+import android.content.Intent
+import android.speech.RecognizerIntent
 import androidx.datastore.preferences.core.Preferences
 import com.example.whispertoinput.ENDPOINT
 import com.example.whispertoinput.LANGUAGE_CODE
@@ -41,4 +43,17 @@ suspend fun Context.loadVoiceInputConfig(): VoiceInputConfig {
         recordedAudioFilename = recordedAudioFilename,
         audioMediaType = if (useOggFormat) AUDIO_MEDIA_TYPE_OGG else AUDIO_MEDIA_TYPE_M4A,
     )
+}
+
+fun VoiceInputConfig.applyRequestedLanguage(requestedLanguage: String?): VoiceInputConfig {
+    if (requestedLanguage.isNullOrBlank()) {
+        return this
+    }
+
+    return copy(languageCode = requestedLanguage)
+}
+
+fun Intent.requestedLanguage(): String? {
+    return getStringExtra(RecognizerIntent.EXTRA_LANGUAGE)
+        ?: getStringExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE)
 }

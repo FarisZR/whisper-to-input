@@ -10,7 +10,9 @@ import android.speech.RecognitionService
 import android.speech.SpeechRecognizer
 import android.util.Log
 import com.example.whispertoinput.R
+import com.example.whispertoinput.voice.applyRequestedLanguage
 import com.example.whispertoinput.voice.loadVoiceInputConfig
+import com.example.whispertoinput.voice.requestedLanguage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -34,7 +36,10 @@ class WhisperRecognitionService : RecognitionService() {
         activeSession = WhisperRecognitionSession(
             coroutineScope = serviceScope,
             callback = FrameworkRecognitionCallback(listener),
-            loadConfig = { listenerContext.loadVoiceInputConfig() },
+            loadConfig = {
+                listenerContext.loadVoiceInputConfig()
+                    .applyRequestedLanguage(recognizerIntent.requestedLanguage())
+            },
             sessionFactory = DefaultVoiceInputSessionFactory(
                 context = listenerContext,
                 minimumRecordingDurationMs = resources.getInteger(R.integer.dictation_min_recording_duration_ms).toLong(),

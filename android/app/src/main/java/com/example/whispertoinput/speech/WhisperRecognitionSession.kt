@@ -8,7 +8,10 @@ import com.example.whispertoinput.voice.VoiceInputConfig
 import com.example.whispertoinput.voice.VoiceInputSessionController
 import com.example.whispertoinput.voice.VoiceInputSessionState
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 interface RecognitionCallback {
@@ -36,12 +39,18 @@ class WhisperRecognitionSession(
     private val callback: RecognitionCallback,
     private val loadConfig: suspend () -> VoiceInputConfig,
     private val sessionFactory: VoiceInputSessionFactory,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Main,
+    private val noSpeechTimeoutMillis: Long = 5_000L,
+    private val speechCompleteSilenceMillis: Long = 1_500L,
     private val onFinished: () -> Unit,
 ) : VoiceInputSessionController.Callbacks {
     private val session: VoiceInputSession = sessionFactory.create(this)
     private var completed: Boolean = false
     private var recordingStarted: Boolean = false
+    private var speechDetected: Boolean = false
     private var startJob: Job? = null
+    private var noSpeechTimeoutJob: Job? = null
+    private var speechCompleteJob: Job? = null
 
     fun startListening() {
         startJob = coroutineScope.launch {
@@ -65,7 +74,7 @@ class WhisperRecognitionSession(
 
             recordingStarted = true
             callback.readyForSpeech()
-            callback.beginningOfSpeech()
+            scheduleNoSpeechTimeout()
         }
     }
 
@@ -79,6 +88,7 @@ class WhisperRecognitionSession(
         }
 
         recordingStarted = false
+        cancelTimeoutJobs()
         callback.endOfSpeech()
         session.stopRecordingAndTranscribe()
     }
@@ -88,6 +98,7 @@ class WhisperRecognitionSession(
             return
         }
         startJob?.cancel()
+        cancelTimeoutJobs()
         session.cancel()
         finish()
     }
@@ -95,11 +106,21 @@ class WhisperRecognitionSession(
     override fun onStateChanged(state: VoiceInputSessionState) {
         if (state == VoiceInputSessionState.Idle) {
             recordingStarted = false
+            speechDetected = false
+            cancelTimeoutJobs()
         }
     }
 
     override fun onAmplitudeChanged(amplitude: Int) {
         if (recordingStarted && !completed) {
+            if (amplitude > 0) {
+                if (!speechDetected) {
+                    speechDetected = true
+                    cancelNoSpeechTimeout()
+                    callback.beginningOfSpeech()
+                }
+                scheduleSpeechCompleteTimeout()
+            }
             callback.rmsChanged(amplitude.toFloat())
         }
     }
@@ -146,7 +167,41 @@ class WhisperRecognitionSession(
         }
         completed = true
         recordingStarted = false
+        speechDetected = false
+        cancelTimeoutJobs()
         onFinished()
+    }
+
+    private fun scheduleNoSpeechTimeout() {
+        cancelNoSpeechTimeout()
+        noSpeechTimeoutJob = coroutineScope.launch(dispatcher) {
+            delay(noSpeechTimeoutMillis)
+            if (!speechDetected && !completed && session.state() == VoiceInputSessionState.Recording) {
+                session.cancel()
+                emitError(SpeechRecognizer.ERROR_SPEECH_TIMEOUT)
+            }
+        }
+    }
+
+    private fun scheduleSpeechCompleteTimeout() {
+        speechCompleteJob?.cancel()
+        speechCompleteJob = coroutineScope.launch(dispatcher) {
+            delay(speechCompleteSilenceMillis)
+            if (speechDetected && !completed && session.state() == VoiceInputSessionState.Recording) {
+                stopListening()
+            }
+        }
+    }
+
+    private fun cancelNoSpeechTimeout() {
+        noSpeechTimeoutJob?.cancel()
+        noSpeechTimeoutJob = null
+    }
+
+    private fun cancelTimeoutJobs() {
+        cancelNoSpeechTimeout()
+        speechCompleteJob?.cancel()
+        speechCompleteJob = null
     }
 }
 
