@@ -51,14 +51,9 @@ class FocusedInputEditor(
         if (event == null || !shouldTrackFocusEvent(event)) {
             return
         }
-        val source = event.source ?: return
-        try {
-            val candidate = findEditableCandidate(source)
-            if (candidate != null) {
-                rememberFocusedNode(candidate)
-            }
-        } finally {
-            source.recycle()
+        val candidate = findEditableCandidate(event.source)
+        if (candidate != null) {
+            rememberFocusedNode(candidate)
         }
     }
 
@@ -135,53 +130,65 @@ class FocusedInputEditor(
             return null
         }
 
-        try {
-            val inputFocusNode = rootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-            val inputFocusedNode = findEditableCandidate(inputFocusNode)
+        val inputFocusNode = rootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        val inputFocusedNode = findEditableCandidate(inputFocusNode, recycleInputNode = false)
+        if (inputFocusedNode == null || inputFocusedNode !== inputFocusNode) {
             inputFocusNode?.recycle()
-            if (inputFocusedNode != null) {
-                rememberFocusedNode(inputFocusedNode)
-                return inputFocusedNode
-            }
-
-            val accessibilityFocusNode = rootNode.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
-            val accessibilityFocusedNode = findEditableCandidate(accessibilityFocusNode)
-            accessibilityFocusNode?.recycle()
-            if (accessibilityFocusedNode != null) {
-                rememberFocusedNode(accessibilityFocusedNode)
-                return accessibilityFocusedNode
-            }
-
-            val descendantFocusedNode = findFocusedEditableDescendant(rootNode)
-            if (descendantFocusedNode != null) {
-                rememberFocusedNode(descendantFocusedNode)
-                return descendantFocusedNode
-            }
-
-            clearRememberedNode()
-            return null
-        } finally {
-            rootNode.recycle()
         }
+        if (inputFocusedNode != null) {
+            rootNode.recycle()
+            rememberFocusedNode(inputFocusedNode)
+            return inputFocusedNode
+        }
+
+        val accessibilityFocusNode = rootNode.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
+        val accessibilityFocusedNode = findEditableCandidate(accessibilityFocusNode, recycleInputNode = false)
+        if (accessibilityFocusedNode == null || accessibilityFocusedNode !== accessibilityFocusNode) {
+            accessibilityFocusNode?.recycle()
+        }
+        if (accessibilityFocusedNode != null) {
+            rootNode.recycle()
+            rememberFocusedNode(accessibilityFocusedNode)
+            return accessibilityFocusedNode
+        }
+
+        val descendantFocusedNode = findFocusedEditableDescendant(rootNode)
+        if (descendantFocusedNode != null) {
+            rootNode.recycle()
+            rememberFocusedNode(descendantFocusedNode)
+            return descendantFocusedNode
+        }
+
+        rootNode.recycle()
+        clearRememberedNode()
+        return null
     }
 
-    private fun findEditableCandidate(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+    private fun findEditableCandidate(
+        node: AccessibilityNodeInfo?,
+        recycleInputNode: Boolean = true,
+    ): AccessibilityNodeInfo? {
         var currentNode: AccessibilityNodeInfo? = node
-        var acquiredNode: AccessibilityNodeInfo? = null
+        var shouldRecycleCurrentNode = recycleInputNode
 
         while (currentNode != null) {
             val parent = currentNode.parent
             if (isEditableTarget(currentNode)) {
                 val result = AccessibilityNodeInfo.obtain(currentNode)
-                acquiredNode?.recycle()
+                if (shouldRecycleCurrentNode) {
+                    currentNode.recycle()
+                }
+                parent?.recycle()
                 return result
             }
-            acquiredNode?.recycle()
-            acquiredNode = parent
-            currentNode = acquiredNode
+
+            if (shouldRecycleCurrentNode) {
+                currentNode.recycle()
+            }
+            currentNode = parent
+            shouldRecycleCurrentNode = true
         }
 
-        acquiredNode?.recycle()
         return null
     }
 
@@ -195,16 +202,18 @@ class FocusedInputEditor(
 
             if (isEditableTarget(node) && (node.isFocused || node.isAccessibilityFocused)) {
                 val result = AccessibilityNodeInfo.obtain(node)
-                queue.removeIf { it === rootNode }
-                queue.forEach { it.recycle() }
                 if (!isRootNode) {
                     node.recycle()
                 }
+                recycleQueuedNodes(queue)
                 return result
             }
 
             for (index in 0 until node.childCount) {
-                node.getChild(index)?.let(queue::addLast)
+                val child = node.getChild(index)
+                if (child != null) {
+                    queue.addLast(child)
+                }
             }
 
             if (!isRootNode) {
@@ -213,6 +222,12 @@ class FocusedInputEditor(
         }
 
         return null
+    }
+
+    private fun recycleQueuedNodes(queue: ArrayDeque<AccessibilityNodeInfo>) {
+        while (queue.isNotEmpty()) {
+            queue.removeFirst().recycle()
+        }
     }
 
     private fun shouldTrackFocusEvent(event: AccessibilityEvent): Boolean {
