@@ -62,7 +62,7 @@ class FocusedInputEditor(
             val cachedNode = refreshedEditableNode(lastFocusedEditableNode)
             if (cachedNode != null) {
                 lastFocusedEditableNode = cachedNode
-                return cachedNode
+                return AccessibilityNodeInfo.obtain(cachedNode)
             }
         }
 
@@ -105,10 +105,11 @@ class FocusedInputEditor(
         return focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
     }
 
-    private fun rememberFocusedNode(node: AccessibilityNodeInfo?) {
-        val editableNode = refreshedEditableNode(node) ?: findEditableCandidate(node) ?: return
+    private fun rememberFocusedNode(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        val editableNode = refreshedEditableNode(node) ?: findEditableCandidate(node) ?: return null
         clearRememberedNode()
         lastFocusedEditableNode = editableNode
+        return editableNode
     }
 
     private fun clearRememberedNode() {
@@ -137,8 +138,7 @@ class FocusedInputEditor(
         }
         if (inputFocusedNode != null) {
             rootNode.recycle()
-            rememberFocusedNode(inputFocusedNode)
-            return inputFocusedNode
+            return rememberFocusedNode(inputFocusedNode)
         }
 
         val accessibilityFocusNode = rootNode.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
@@ -148,15 +148,13 @@ class FocusedInputEditor(
         }
         if (accessibilityFocusedNode != null) {
             rootNode.recycle()
-            rememberFocusedNode(accessibilityFocusedNode)
-            return accessibilityFocusedNode
+            return rememberFocusedNode(accessibilityFocusedNode)
         }
 
         val descendantFocusedNode = findFocusedEditableDescendant(rootNode)
         if (descendantFocusedNode != null) {
             rootNode.recycle()
-            rememberFocusedNode(descendantFocusedNode)
-            return descendantFocusedNode
+            return rememberFocusedNode(descendantFocusedNode)
         }
 
         rootNode.recycle()
