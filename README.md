@@ -99,14 +99,16 @@ After that, apps that use Android's default `SpeechRecognizer` service should ro
 
 ## Keyboard Usage
 
-<img src='docs/images/keyboard-layout.jpg' width='200'>
+<img src='docs/images/keyboard-new-design.png' width='200'>
 
-- `Microphone Key` in the center: Click to start recording, click again to stop recording, and input the recognized text.
-- `Cancel Key` in the bottom left (Only visible when recording): Click to cancel the current recording.
-- `Backspace Key` in the upper right: Delete the previous character. If you press and hold this key, it will keep deleting characters until you release it.
-- `Enter Key` in the bottom right: Input a newline character. If you press this while recording, it will stop recording and input the recognized text with a trailing newline.
-- `Settings Key` in the upper left: Open the app settings page.
-- `Switch Key` in the upper left: Switch to the previous input method. Note that if there were no previous input method, this key will not do anything.
+- `Waveform Area` in the center: Tap to start recording, tap again to stop recording and input the recognized text. Displays an animated waveform during recording.
+- `Cancel Key` on the left of the waveform (only visible when recording): Tap to cancel the current recording.
+- `Retry Key` on the left of the waveform (only visible after transcription): Tap to re-record.
+- `Backspace Key` on the right of the waveform: Delete the previous character. Press and hold to keep deleting characters until released.
+- `Space Bar` at the bottom left: Input a space character.
+- `Enter Key` at the bottom right: Input a newline character. If pressed while recording, it will stop recording and input the recognized text with a trailing newline.
+- `Settings Key` in the upper right: Open the app settings page.
+- `Switch Key` in the upper left: Switch to the previous input method. Note that if there is no previous input method, this key will not do anything.
 
 ## Services
 

@@ -8,4 +8,14 @@
     <color name="overlay_foreground_secondary">#FFDADAE0</color>
     <color name="overlay_handle">#FF67676D</color>
     <color name="overlay_waveform">#FF3D7BFF</color>
+
+    <!-- Keyboard design language (matches overlay palette) -->
+    <color name="keyboard_background">#FF2C2C30</color>
+    <color name="keyboard_surface">#FF3A3A3E</color>
+    <color name="keyboard_foreground">#FFF4F4F6</color>
+    <color name="keyboard_foreground_secondary">#FF9E9EA6</color>
+    <color name="keyboard_accent">#FF3D7BFF</color>
+    <color name="keyboard_waveform_area">#FF32323A</color>
+    <color name="keyboard_button_bg">#FF48484E</color>
+    <color name="keyboard_top_bar">#FF3D7BFF</color>
 </resources>

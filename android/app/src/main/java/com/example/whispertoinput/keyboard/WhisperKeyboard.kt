@@ -19,27 +19,16 @@
 
 package com.example.whispertoinput.keyboard
 
-import android.util.Log
-import android.view.GestureDetector
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.math.MathUtils
 import com.example.whispertoinput.R
-import kotlin.math.log10
-import kotlin.math.pow
-
-private const val AMPLITUDE_CLAMP_MIN: Int = 10
-private const val AMPLITUDE_CLAMP_MAX: Int = 25000
-private const val LOG_10_10: Float = 1.0F
-private const val LOG_10_25000: Float = 4.398F
-private const val AMPLITUDE_ANIMATION_DURATION: Long = 500
-private val amplitudePowers: Array<Float> = arrayOf(0.5f, 1.0f, 2f, 3f)
+import com.example.whispertoinput.accessibility.WaveformView
 
 class WhisperKeyboard {
     private enum class KeyboardStatus {
@@ -65,7 +54,9 @@ class WhisperKeyboard {
 
     // Views & Keyboard Layout
     private var keyboardView: ConstraintLayout? = null
-    private var buttonMic: ImageButton? = null
+    private var waveformView: WaveformView? = null
+    private var waveformContainer: FrameLayout? = null
+    private var micIcon: ImageView? = null
     private var buttonEnter: ImageButton? = null
     private var buttonCancel: ImageButton? = null
     private var buttonRetry: ImageButton? = null
@@ -75,8 +66,6 @@ class WhisperKeyboard {
     private var buttonBackspace: BackspaceButton? = null
     private var buttonPreviousIme: ImageButton? = null
     private var buttonSettings: ImageButton? = null
-    private var micRippleContainer: ConstraintLayout? = null
-    private var micRipples: Array<ImageView> = emptyArray()
 
     fun setup(
         layoutInflater: LayoutInflater,
@@ -94,23 +83,18 @@ class WhisperKeyboard {
     ): View {
         // Inflate the keyboard layout & assign views
         keyboardView = layoutInflater.inflate(R.layout.keyboard_view, null) as ConstraintLayout
-        buttonMic = keyboardView!!.findViewById(R.id.btn_mic) as ImageButton
-        buttonEnter = keyboardView!!.findViewById(R.id.btn_enter) as ImageButton
-        buttonCancel = keyboardView!!.findViewById(R.id.btn_cancel) as ImageButton
-        buttonRetry = keyboardView!!.findViewById(R.id.btn_retry) as ImageButton
-        labelStatus = keyboardView!!.findViewById(R.id.label_status) as TextView
-        buttonSpaceBar = keyboardView!!.findViewById(R.id.btn_space_bar) as ImageButton
-        waitingIcon = keyboardView!!.findViewById(R.id.pb_waiting_icon) as ProgressBar
-        buttonBackspace = keyboardView!!.findViewById(R.id.btn_backspace) as BackspaceButton
-        buttonPreviousIme = keyboardView!!.findViewById(R.id.btn_previous_ime) as ImageButton
-        buttonSettings = keyboardView!!.findViewById(R.id.btn_settings) as ImageButton
-        micRippleContainer = keyboardView!!.findViewById(R.id.mic_ripples) as ConstraintLayout
-        micRipples = arrayOf(
-            keyboardView!!.findViewById(R.id.mic_ripple_0) as ImageView,
-            keyboardView!!.findViewById(R.id.mic_ripple_1) as ImageView,
-            keyboardView!!.findViewById(R.id.mic_ripple_2) as ImageView,
-            keyboardView!!.findViewById(R.id.mic_ripple_3) as ImageView
-        )
+        waveformView = keyboardView!!.findViewById(R.id.keyboard_waveform_view)
+        waveformContainer = keyboardView!!.findViewById(R.id.waveform_container)
+        micIcon = keyboardView!!.findViewById(R.id.keyboard_mic_icon)
+        buttonEnter = keyboardView!!.findViewById(R.id.btn_enter)
+        buttonCancel = keyboardView!!.findViewById(R.id.btn_cancel)
+        buttonRetry = keyboardView!!.findViewById(R.id.btn_retry)
+        labelStatus = keyboardView!!.findViewById(R.id.label_status)
+        buttonSpaceBar = keyboardView!!.findViewById(R.id.btn_space_bar)
+        waitingIcon = keyboardView!!.findViewById(R.id.pb_waiting_icon)
+        buttonBackspace = keyboardView!!.findViewById(R.id.btn_backspace)
+        buttonPreviousIme = keyboardView!!.findViewById(R.id.btn_previous_ime)
+        buttonSettings = keyboardView!!.findViewById(R.id.btn_settings)
 
         // Hide buttonPreviousIme if necessary
         if (!shouldOfferImeSwitch) {
@@ -118,7 +102,7 @@ class WhisperKeyboard {
         }
 
         // Set onClick listeners
-        buttonMic!!.setOnClickListener { onButtonMicClick() }
+        waveformView!!.setOnClickListener { onWaveformClick() }
         buttonEnter!!.setOnClickListener { onButtonEnterClick() }
         buttonCancel!!.setOnClickListener { onButtonCancelClick() }
         buttonRetry!!.setOnClickListener { onButtonRetryClick() }
@@ -157,26 +141,7 @@ class WhisperKeyboard {
         if (keyboardStatus != KeyboardStatus.Recording) {
             return
         }
-
-        val clampedAmplitude = MathUtils.clamp(
-            amplitude,
-            AMPLITUDE_CLAMP_MIN,
-            AMPLITUDE_CLAMP_MAX
-        )
-
-        // decibel-like calculation
-        val normalizedPower =
-            (log10(clampedAmplitude * 1f) - LOG_10_10) / (LOG_10_25000 - LOG_10_10)
-
-        // normalizedPower ranges from 0 to 1.
-        // The inner-most ripple should be the most sensitive to audio,
-        // represented by a gamma-correction-like curve.
-        for (micRippleIdx in micRipples.indices) {
-            micRipples[micRippleIdx].clearAnimation()
-            micRipples[micRippleIdx].alpha = normalizedPower.pow(amplitudePowers[micRippleIdx])
-            micRipples[micRippleIdx].animate().alpha(0f).setDuration(AMPLITUDE_ANIMATION_DURATION)
-                .start()
-        }
+        waveformView?.setAmplitude(amplitude)
     }
 
     fun tryStartRecording() {
@@ -227,11 +192,11 @@ class WhisperKeyboard {
         this.onOpenSettings()
     }
 
-    private fun onButtonMicClick() {
-        // Upon button mic click...
+    private fun onWaveformClick() {
+        // Upon waveform click...
         // Idle -> Start Recording
         // Recording -> Finish Recording (without a newline)
-        // Transcribing -> Nothing (to avoid double-clicking by mistake, which starts transcribing and then immediately cancels it)
+        // Transcribing -> Nothing (to avoid double-clicking by mistake)
         when (keyboardStatus) {
             KeyboardStatus.Idle -> {
                 setKeyboardStatus(KeyboardStatus.Recording)
@@ -289,31 +254,31 @@ class WhisperKeyboard {
         when (newStatus) {
             KeyboardStatus.Idle -> {
                 labelStatus!!.setText(R.string.whisper_to_input)
-                buttonMic!!.setImageResource(R.drawable.mic_idle)
+                micIcon!!.visibility = View.VISIBLE
                 waitingIcon!!.visibility = View.INVISIBLE
                 buttonCancel!!.visibility = View.INVISIBLE
                 buttonRetry!!.visibility = if (shouldShowRetry()) View.VISIBLE else View.INVISIBLE
-                micRippleContainer!!.visibility = View.GONE
+                waveformView!!.reset()
                 keyboardView!!.keepScreenOn = false
             }
 
             KeyboardStatus.Recording -> {
                 labelStatus!!.setText(R.string.recording)
-                buttonMic!!.setImageResource(R.drawable.mic_pressed)
+                micIcon!!.visibility = View.INVISIBLE
                 waitingIcon!!.visibility = View.INVISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
                 buttonRetry!!.visibility = View.INVISIBLE
-                micRippleContainer!!.visibility = View.VISIBLE
+                waveformView!!.showRecordingState()
                 keyboardView!!.keepScreenOn = true
             }
 
             KeyboardStatus.Transcribing -> {
                 labelStatus!!.setText(R.string.transcribing)
-                buttonMic!!.setImageResource(R.drawable.mic_transcribing)
+                micIcon!!.visibility = View.INVISIBLE
                 waitingIcon!!.visibility = View.VISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
                 buttonRetry!!.visibility = View.INVISIBLE
-                micRippleContainer!!.visibility = View.GONE
+                waveformView!!.showTranscribingState()
                 keyboardView!!.keepScreenOn = true
             }
         }
