@@ -283,6 +283,35 @@ class WhisperKeyboard {
             }
         }
 
+        updateWaveformAccessibility(newStatus)
         keyboardStatus = newStatus
+    }
+
+    private fun updateWaveformAccessibility(status: KeyboardStatus) {
+        val view = waveformView ?: return
+        val context = view.context
+
+        when (status) {
+            KeyboardStatus.Idle -> {
+                view.isEnabled = true
+                view.isClickable = true
+                view.isFocusable = true
+                view.contentDescription = context.getString(R.string.start_speech_to_text)
+            }
+
+            KeyboardStatus.Recording -> {
+                view.isEnabled = true
+                view.isClickable = true
+                view.isFocusable = true
+                view.contentDescription = context.getString(R.string.stop_speech_to_text)
+            }
+
+            KeyboardStatus.Transcribing -> {
+                view.isEnabled = false
+                view.isClickable = false
+                view.isFocusable = false
+                view.contentDescription = context.getString(R.string.transcribing)
+            }
+        }
     }
 }

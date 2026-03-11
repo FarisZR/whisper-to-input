@@ -78,7 +78,7 @@
         android:layout_width="36dp"
         android:layout_height="36dp"
         android:background="@drawable/bg_keyboard_borderless"
-        android:contentDescription="@string/btn_previous_ime_hint"
+        android:contentDescription="@string/btn_settings_hint"
         android:padding="6dp"
         android:scaleType="fitCenter"
         android:src="@drawable/ic_keyboard_settings"
@@ -102,6 +102,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clickable="true"
+            android:contentDescription="@string/start_speech_to_text"
             android:focusable="true" />
 
         <!-- Mic icon overlay shown in idle state -->
@@ -110,9 +111,12 @@
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:layout_gravity="center"
+            android:clickable="false"
+            android:contentDescription="@null"
+            android:focusable="false"
+            android:importantForAccessibility="no"
             android:src="@drawable/ic_keyboard_mic"
-            android:tint="@color/keyboard_accent"
-            android:contentDescription="@string/start_speech_to_text" />
+            android:tint="@color/keyboard_accent" />
 
         <!-- Progress bar for transcribing state -->
         <ProgressBar
@@ -123,6 +127,7 @@
             android:layout_gravity="center"
             android:clickable="false"
             android:focusable="false"
+            android:importantForAccessibility="no"
             android:visibility="invisible" />
 
     </FrameLayout>
@@ -134,7 +139,7 @@
         android:layout_height="40dp"
         android:layout_marginStart="8dp"
         android:background="@drawable/bg_keyboard_borderless"
-        android:contentDescription=""
+        android:contentDescription="@string/btn_cancel_hint"
         android:padding="8dp"
         android:scaleType="fitCenter"
         android:src="@drawable/ic_keyboard_cancel"
@@ -151,7 +156,7 @@
         android:layout_height="40dp"
         android:layout_marginStart="8dp"
         android:background="@drawable/bg_keyboard_borderless"
-        android:contentDescription=""
+        android:contentDescription="@string/btn_retry_hint"
         android:padding="8dp"
         android:scaleType="fitCenter"
         android:src="@drawable/ic_keyboard_retry"

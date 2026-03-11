@@ -10,6 +10,7 @@
     <string name="recording">Recording…</string>
     <string name="transcribing">Transcribing…</string>
     <string name="start_speech_to_text">Start speech-to-text.</string>
+    <string name="stop_speech_to_text">Stop recording and transcribe.</string>
     <string name="start_transcribing">Start transcribing.</string>
     <string name="grant_microphone_permission">Grant Microphone Permission</string>
     <string name="mic_permission_required">Whisper to Input requires microphone permission to work.</string>
@@ -20,6 +21,9 @@
     <string name="dictation_recording_failed">Could not process that recording.</string>
     <string name="backspace_button_hint">Backspace Button</string>
     <string name="btn_previous_ime_hint">Switch To Previous Input Method</string>
+    <string name="btn_settings_hint">Open settings</string>
+    <string name="btn_cancel_hint">Cancel dictation</string>
+    <string name="btn_retry_hint">Retry dictation</string>
     <string name="generate_logcat">Generate Recent Logcat</string>
     <string name="overlay_recording">Listening…</string>
     <string name="overlay_transcribing">Transcribing…</string>
