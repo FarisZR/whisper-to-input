@@ -92,6 +92,14 @@ class MainActivity : AppCompatActivity() {
         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
+    fun onOpenKeyboardSettings(view: View) {
+        try {
+            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+        } catch (_: ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_SETTINGS))
+        }
+    }
+
     fun onOpenVoiceInputSettings(view: View) {
         try {
             startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))

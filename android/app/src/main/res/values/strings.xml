@@ -36,6 +36,9 @@
     <string name="accessibility_service_summary">Open a Whisper dictation overlay from a keyboard shortcut.</string>
     <string name="accessibility_service_description">Listens for the configured keyboard shortcut, shows a floating dictation overlay, records until you stop it, and inserts the Whisper transcript into the focused text field.</string>
     <string name="speech_recognition_service_label">Whisper speech recognizer</string>
+    <string name="settings_keyboard_setup">Keyboard Setup</string>
+    <string name="settings_keyboard_setup_desc">Enable Whisper To Input as an on-screen keyboard in Android settings before using keyboard dictation.</string>
+    <string name="settings_open_keyboard_settings">Open Keyboard Settings</string>
     <string name="settings_accessibility_setup">Overlay Dictation Shortcut</string>
     <string name="settings_accessibility_setup_desc">Enable the accessibility service so the keyboard shortcut can hide the current keyboard, show the floating overlay, and restore your keyboard when transcription finishes.</string>
     <string name="settings_open_accessibility">Open Accessibility Settings</string>

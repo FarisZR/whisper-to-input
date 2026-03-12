@@ -295,14 +295,14 @@ class WhisperKeyboard {
             KeyboardStatus.Idle -> {
                 view.isEnabled = true
                 view.isClickable = true
-                view.isFocusable = true
+                view.isFocusable = false
                 view.contentDescription = context.getString(R.string.start_speech_to_text)
             }
 
             KeyboardStatus.Recording -> {
                 view.isEnabled = true
                 view.isClickable = true
-                view.isFocusable = true
+                view.isFocusable = false
                 view.contentDescription = context.getString(R.string.stop_speech_to_text)
             }
 

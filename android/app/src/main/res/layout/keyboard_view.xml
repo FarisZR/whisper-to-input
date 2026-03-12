@@ -103,7 +103,7 @@
             android:layout_height="match_parent"
             android:clickable="true"
             android:contentDescription="@string/start_speech_to_text"
-            android:focusable="true" />
+            android:focusable="false" />
 
         <!-- Mic icon overlay shown in idle state -->
         <ImageView
