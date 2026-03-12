@@ -26,6 +26,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.constraintlayout.widget.ConstraintLayout
 import com.example.whispertoinput.R
 import com.example.whispertoinput.accessibility.WaveformView
@@ -66,6 +67,7 @@ class WhisperKeyboard {
     private var buttonBackspace: BackspaceButton? = null
     private var buttonPreviousIme: ImageButton? = null
     private var buttonSettings: ImageButton? = null
+    private var statusMessageOverride: CharSequence? = null
 
     fun setup(
         layoutInflater: LayoutInflater,
@@ -134,6 +136,12 @@ class WhisperKeyboard {
     }
 
     fun reset() {
+        statusMessageOverride = null
+        setKeyboardStatus(KeyboardStatus.Idle)
+    }
+
+    fun showStatusMessage(message: CharSequence) {
+        statusMessageOverride = message
         setKeyboardStatus(KeyboardStatus.Idle)
     }
 
@@ -253,7 +261,8 @@ class WhisperKeyboard {
     private fun setKeyboardStatus(newStatus: KeyboardStatus) {
         when (newStatus) {
             KeyboardStatus.Idle -> {
-                labelStatus!!.setText(R.string.whisper_to_input)
+                labelStatus!!.text = statusMessageOverride ?: labelStatus!!.context.getString(R.string.whisper_to_input)
+                labelStatus!!.setTextColor(ContextCompat.getColor(labelStatus!!.context, R.color.keyboard_foreground))
                 micIcon!!.visibility = View.VISIBLE
                 waitingIcon!!.visibility = View.INVISIBLE
                 buttonCancel!!.visibility = View.INVISIBLE
@@ -263,7 +272,9 @@ class WhisperKeyboard {
             }
 
             KeyboardStatus.Recording -> {
+                statusMessageOverride = null
                 labelStatus!!.setText(R.string.recording)
+                labelStatus!!.setTextColor(ContextCompat.getColor(labelStatus!!.context, R.color.keyboard_foreground))
                 micIcon!!.visibility = View.INVISIBLE
                 waitingIcon!!.visibility = View.INVISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
@@ -273,7 +284,9 @@ class WhisperKeyboard {
             }
 
             KeyboardStatus.Transcribing -> {
+                statusMessageOverride = null
                 labelStatus!!.setText(R.string.transcribing)
+                labelStatus!!.setTextColor(ContextCompat.getColor(labelStatus!!.context, R.color.keyboard_foreground))
                 micIcon!!.visibility = View.INVISIBLE
                 waitingIcon!!.visibility = View.VISIBLE
                 buttonCancel!!.visibility = View.VISIBLE

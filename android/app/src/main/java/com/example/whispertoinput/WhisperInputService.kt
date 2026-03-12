@@ -21,11 +21,13 @@ package com.example.whispertoinput
 
 import android.inputmethodservice.InputMethodService
 import android.os.Build
+import android.os.SystemClock
 import android.view.View
 import android.content.Intent
 import android.os.IBinder
 import android.text.TextUtils
 import android.view.KeyEvent
+import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.datastore.preferences.core.Preferences
@@ -55,26 +57,40 @@ class WhisperInputService : InputMethodService() {
     private var audioMediaType: String = AUDIO_MEDIA_TYPE_M4A
     private var useOggFormat: Boolean = false
     private var isFirstTime: Boolean = true
+    private var recordingStartedAtMs: Long = 0L
+    private var transcriptionInputConnection: InputConnection? = null
 
     private fun transcriptionCallback(text: String?) {
+        var insertedSuccessfully = false
         if (!text.isNullOrEmpty()) {
-            currentInputConnection?.commitText(text, 1)
-            // Check if auto-switch-back is enabled and switch if so
-            CoroutineScope(Dispatchers.Main).launch {
-                val autoSwitchBack = dataStore.data.map { preferences: Preferences ->
-                    preferences[AUTO_SWITCH_BACK] ?: false
-                }.first()
-                if (autoSwitchBack) {
-                    onSwitchIme()
+            insertedSuccessfully = commitTranscriptionText(text)
+            if (insertedSuccessfully) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    val autoSwitchBack = dataStore.data.map { preferences: Preferences ->
+                        preferences[AUTO_SWITCH_BACK] ?: false
+                    }.first()
+                    if (autoSwitchBack) {
+                        onSwitchIme()
+                    }
                 }
+            } else {
+                whisperKeyboard.showStatusMessage(getString(R.string.overlay_insert_failed))
+                Toast.makeText(this, R.string.overlay_insert_failed, Toast.LENGTH_SHORT).show()
             }
+        } else {
+            whisperKeyboard.showStatusMessage(getString(R.string.dictation_empty_result))
+            Toast.makeText(this, R.string.dictation_empty_result, Toast.LENGTH_SHORT).show()
         }
-        whisperKeyboard.reset()
+        transcriptionInputConnection = null
+        if (insertedSuccessfully) {
+            whisperKeyboard.reset()
+        }
     }
 
     private fun transcriptionExceptionCallback(message: String) {
+        transcriptionInputConnection = null
+        whisperKeyboard.showStatusMessage(message)
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-        whisperKeyboard.reset()
     }
 
     private suspend fun updateAudioFormat() {
@@ -147,6 +163,7 @@ class WhisperInputService : InputMethodService() {
         }
 
         recorderManager!!.start(this, recordedAudioFilename, useOggFormat)
+        recordingStartedAtMs = SystemClock.elapsedRealtime()
     }
 
     // when mic amplitude is updated, notify the keyboard
@@ -157,10 +174,26 @@ class WhisperInputService : InputMethodService() {
 
     private fun onCancelRecording() {
         recorderManager!!.stop()
+        recordingStartedAtMs = 0L
     }
 
     private fun onStartTranscription(attachToEnd: String) {
-        recorderManager!!.stop()
+        transcriptionInputConnection = currentInputConnection
+        val recordingDurationMs = SystemClock.elapsedRealtime() - recordingStartedAtMs
+        recordingStartedAtMs = 0L
+        val recorderStoppedCleanly = recorderManager!!.stop()
+        if (!recorderStoppedCleanly) {
+            transcriptionInputConnection = null
+            whisperKeyboard.showStatusMessage(getString(R.string.dictation_recording_failed))
+            Toast.makeText(this, R.string.dictation_recording_failed, Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (recordingDurationMs < resources.getInteger(R.integer.dictation_min_recording_duration_ms)) {
+            transcriptionInputConnection = null
+            whisperKeyboard.showStatusMessage(getString(R.string.dictation_too_short))
+            Toast.makeText(this, R.string.dictation_too_short, Toast.LENGTH_SHORT).show()
+            return
+        }
         whisperTranscriber.startAsync(this,
             recordedAudioFilename,
             audioMediaType,
@@ -170,7 +203,14 @@ class WhisperInputService : InputMethodService() {
     }
 
     private fun onCancelTranscription() {
+        recordingStartedAtMs = 0L
+        transcriptionInputConnection = null
         whisperTranscriber.stop()
+    }
+
+    private fun commitTranscriptionText(text: String): Boolean {
+        val savedInputConnection = transcriptionInputConnection
+        return savedInputConnection?.commitText(text, 1) == true
     }
 
     private fun onDeleteText() {
@@ -226,6 +266,8 @@ class WhisperInputService : InputMethodService() {
     override fun onWindowShown() {
         super.onWindowShown()
         whisperTranscriber.stop()
+        recordingStartedAtMs = 0L
+        transcriptionInputConnection = null
         whisperKeyboard.reset()
         recorderManager!!.stop()
 
@@ -249,6 +291,8 @@ class WhisperInputService : InputMethodService() {
     override fun onWindowHidden() {
         super.onWindowHidden()
         whisperTranscriber.stop()
+        recordingStartedAtMs = 0L
+        transcriptionInputConnection = null
         whisperKeyboard.reset()
         recorderManager!!.stop()
     }
@@ -256,6 +300,8 @@ class WhisperInputService : InputMethodService() {
     override fun onDestroy() {
         super.onDestroy()
         whisperTranscriber.stop()
+        recordingStartedAtMs = 0L
+        transcriptionInputConnection = null
         whisperKeyboard.reset()
         recorderManager!!.stop()
     }
